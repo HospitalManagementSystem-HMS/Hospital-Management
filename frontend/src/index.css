@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  background:
+    radial-gradient(1000px 600px at 20% 10%, rgba(53, 156, 255, 0.20), transparent 60%),
+    radial-gradient(900px 560px at 90% 0%, rgba(16, 185, 129, 0.16), transparent 55%),
+    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 40%, #f7fffb 100%);
+  color: #0f172a;
+}
+

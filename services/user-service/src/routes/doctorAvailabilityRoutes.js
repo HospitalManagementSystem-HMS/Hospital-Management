@@ -26,24 +26,32 @@ const addSlotsSchema = z.object({
 router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (req, res, next) => {
   try {
     const body = addSlotsSchema.parse(req.body);
-    const doctor = await Doctor.findOne({ authUserId: req.user.id, deletedAt: null });
-    if (!doctor) return res.status(404).json({ error: "NOT_FOUND" });
-
-    const day = doctor.availability.find((d) => d.date === body.date);
     const newSlots = [];
     for (const s of body.slots) {
       const { startTime, endTime, time } = parseTimeRangeOnDate(body.date, s.time);
       newSlots.push({ time, startTime, endTime, enabled: body.enabled, isBooked: false, bookedByPatientId: null, appointmentId: null });
     }
 
-    if (!day) {
-      doctor.availability.push({ date: body.date, slots: newSlots });
+    // Use targeted updates to avoid full-document validation failures
+    // (e.g., legacy doctor docs with specialization values outside the new enum).
+    const hasDay = await Doctor.exists({ authUserId: req.user.id, deletedAt: null, "availability.date": body.date });
+    if (hasDay) {
+      await Doctor.updateOne(
+        { authUserId: req.user.id, deletedAt: null, "availability.date": body.date },
+        { $push: { "availability.$.slots": { $each: newSlots } } }
+      );
     } else {
-      day.slots.push(...newSlots);
+      await Doctor.updateOne(
+        { authUserId: req.user.id, deletedAt: null },
+        { $push: { availability: { date: body.date, slots: newSlots } } }
+      );
     }
-    await doctor.save();
-    return res.status(201).json({ availability: groupAvailabilityForPublic(doctor) });
+
+    const fresh = await Doctor.findOne({ authUserId: req.user.id, deletedAt: null });
+    if (!fresh) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.status(201).json({ availability: groupAvailabilityForPublic(fresh) });
   } catch (err) {
+    if (err?.name === "ZodError") return res.status(400).json({ error: "INVALID_SLOT_PAYLOAD" });
     if (String(err.message || "").includes("INVALID")) return res.status(400).json({ error: "INVALID_SLOT_PAYLOAD" });
     next(err);
   }

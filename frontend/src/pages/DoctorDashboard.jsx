@@ -90,7 +90,9 @@ export function DoctorDashboard() {
     const t = setInterval(() => setNowTick(Date.now()), 30_000);
     
     // Connect WebSocket
-    const socket = io(); // Connects to the same host which is proxied
+    const socket = io("http://15.206.100.247:8080", {
+      transports: ["websocket"]
+    }); // Connects directly to the gateway
     socket.on("availability_updated", () => loadMyAvailability());
     socket.on("appointment_updated", () => load());
     

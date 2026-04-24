@@ -1,19 +1,29 @@
-FROM node:20-alpine AS build
+# ----------- BUILD STAGE -----------
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY package.json ./
-COPY vite.config.js ./
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
-COPY index.html ./
-COPY public ./public
-COPY src ./src
 
+COPY package*.json ./
 RUN npm install
+
+COPY . .
+
 RUN npm run build
 
-FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+# ----------- RUN STAGE -----------
+FROM nginx:alpine
+
+# Remove default nginx config
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy build files
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy custom nginx config (optional)
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Non-root user (nginx already runs non-root internally in alpine)
+
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]

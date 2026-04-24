@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
 import { Button } from "../ui/Button.jsx";
@@ -84,7 +85,16 @@ export function DoctorDashboard() {
 
   useEffect(() => {
     const t = setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => clearInterval(t);
+    
+    // Connect WebSocket
+    const socket = io(); // Connects to the same host which is proxied
+    socket.on("availability_updated", () => loadMyAvailability());
+    socket.on("appointment_updated", () => load());
+    
+    return () => {
+      clearInterval(t);
+      socket.disconnect();
+    };
   }, []);
 
   function isPastTime(hhmm) {
@@ -150,13 +160,35 @@ export function DoctorDashboard() {
     setAvBusy(true);
     try {
       if (!avDate) throw new Error("Pick a date");
-      if (!avStart || !avEnd) throw new Error("Pick start/end");
-      if (timeOptions.indexOf(avEnd) <= timeOptions.indexOf(avStart)) throw new Error("End must be after start");
+      if (!avStart || !avEnd) throw new Error("Pick start and end times");
+      if (avStart >= avEnd) throw new Error("End time must be after start time");
       if (isPastTime(avStart)) throw new Error("Cannot add past time slot");
-      await api.post("/doctor/availability", { date: avDate, slots: [{ time: `${avStart}-${avEnd}` }] });
+      
+      // Auto-generate 30 min interval slots
+      const slots = [];
+      let [sh, sm] = avStart.split(":").map(Number);
+      const [eh, em] = avEnd.split(":").map(Number);
+      
+      let currentMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      
+      while (currentMin < endMin) {
+        let nextMin = currentMin + 30;
+        if (nextMin > endMin) nextMin = endMin;
+        
+        const c_h = String(Math.floor(currentMin / 60)).padStart(2, "0");
+        const c_m = String(currentMin % 60).padStart(2, "0");
+        const n_h = String(Math.floor(nextMin / 60)).padStart(2, "0");
+        const n_m = String(nextMin % 60).padStart(2, "0");
+        
+        slots.push({ time: `${c_h}:${c_m}-${n_h}:${n_m}` });
+        currentMin = nextMin;
+      }
+      
+      await api.post("/doctor/availability", { date: avDate, slots });
       await loadMyAvailability();
     } catch (e) {
-      setAvError(e?.response?.data?.error || "Failed to add slot");
+      setAvError(e?.response?.data?.error || e.message || "Failed to add slot");
     } finally {
       setAvBusy(false);
     }
@@ -282,35 +314,19 @@ export function DoctorDashboard() {
             </div>
             <div className="space-y-2">
               <Label>Start time</Label>
-              <select
-                className="h-11 w-full rounded-xl border border-white/70 bg-white/70 px-4 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+              <Input
+                type="time"
                 value={avStart}
                 onChange={(e) => setAvStart(e.target.value)}
-              >
-                {timeOptions.map((t) => (
-                  <option key={t} value={t} disabled={isToday && isPastTime(t)}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="space-y-2">
               <Label>End time</Label>
-              <select
-                className="h-11 w-full rounded-xl border border-white/70 bg-white/70 px-4 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+              <Input
+                type="time"
                 value={avEnd}
                 onChange={(e) => setAvEnd(e.target.value)}
-              >
-                {timeOptions.map((t) => (
-                  <option
-                    key={t}
-                    value={t}
-                    disabled={(isToday && isPastTime(t)) || timeOptions.indexOf(t) <= timeOptions.indexOf(avStart)}
-                  >
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
           {avError ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{avError}</div> : null}

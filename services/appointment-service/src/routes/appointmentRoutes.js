@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const axios = require("axios");
 const { Appointment } = require("../models/Appointment");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { lookupUsers } = require("../services/authLookup");
@@ -92,6 +93,13 @@ async function handleBookAppointment(req, res, next) {
         action: "APPOINTMENT_BOOKED",
         details: { appointmentId: appt._id.toString(), doctorId, startTime: appt.startTime, slotId }
       });
+      
+      try {
+        await axios.post("http://api-gateway:8080/api/internal/emit", {
+          event: "appointment_updated",
+          payload: { patientId: req.user.id, doctorId }
+        });
+      } catch (e) { console.error(e.message); }
 
       return res.status(201).json({ appointment: appt });
     }
@@ -139,6 +147,13 @@ async function handleBookAppointment(req, res, next) {
       action: "APPOINTMENT_BOOKED",
       details: { appointmentId: appt._id.toString(), doctorId, startTime: appt.startTime }
     });
+    
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "appointment_updated",
+        payload: { patientId: req.user.id, doctorId }
+      });
+    } catch (e) { console.error(e.message); }
 
     return res.status(201).json({ appointment: appt });
   } catch (err) {
@@ -238,6 +253,13 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
       action: "APPOINTMENT_DECISION",
       details: { appointmentId: appt._id.toString(), status }
     });
+    
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "appointment_updated",
+        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
+      });
+    } catch (e) { console.error(e.message); }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -277,6 +299,13 @@ router.post("/appointments/:id/prescription", requireAuth, requireRole("DOCTOR")
       action: "PRESCRIPTION_UPSERTED",
       details: { appointmentId: appt._id.toString() }
     });
+    
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "appointment_updated",
+        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
+      });
+    } catch (e) { console.error(e.message); }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -304,6 +333,13 @@ router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("D
       action: "CONSULTATION_NOTES_UPDATED",
       details: { appointmentId: appt._id.toString() }
     });
+    
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "appointment_updated",
+        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
+      });
+    } catch (e) { console.error(e.message); }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -371,6 +407,13 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
       action: "CONSULTATION_COMPLETED",
       details: { appointmentId: appt._id.toString(), followUpDate: appt.followUpDate }
     });
+    
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "appointment_updated",
+        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
+      });
+    } catch (e) { console.error(e.message); }
 
     return res.json({ appointment: appt });
   } catch (err) {

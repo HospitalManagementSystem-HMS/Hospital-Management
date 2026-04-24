@@ -1,5 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
+const axios = require("axios");
 const mongoose = require("mongoose");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { Doctor } = require("../models/Doctor");
@@ -29,8 +30,8 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
     const newSlots = [];
     for (const s of body.slots) {
       const { startTime, endTime, time } = parseTimeRangeOnDate(body.date, s.time);
-      if (startTime.getTime() < Date.now()) {
-        return res.status(400).json({ error: "CANNOT_ADD_PAST_TIME_SLOT" });
+      if (startTime.getTime() < Date.now() || endTime.getTime() <= startTime.getTime()) {
+        return res.status(400).json({ error: "Invalid time range" });
       }
       newSlots.push({ time, startTime, endTime, enabled: body.enabled, isBooked: false, bookedByPatientId: null, appointmentId: null });
     }
@@ -52,6 +53,17 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
 
     const fresh = await Doctor.findOne({ authUserId: req.user.id, deletedAt: null });
     if (!fresh) return res.status(404).json({ error: "NOT_FOUND" });
+    
+    // Emit real-time event
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "availability_updated",
+        payload: { doctorId: fresh._id }
+      });
+    } catch (e) {
+      console.error("Failed to emit socket event", e.message);
+    }
+
     return res.status(201).json({ availability: groupAvailabilityForPublic(fresh) });
   } catch (err) {
     if (err?.name === "ZodError") return res.status(400).json({ error: "INVALID_SLOT_PAYLOAD" });
@@ -75,6 +87,17 @@ router.patch("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR"),
     const path = `availability.${loc.d}.slots.${loc.s}.enabled`;
     await Doctor.updateOne({ authUserId: req.user.id }, { $set: { [path]: enabled } });
     const fresh = await Doctor.findOne({ authUserId: req.user.id });
+    
+    // Emit real-time event
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "availability_updated",
+        payload: { doctorId: fresh._id }
+      });
+    } catch (e) {
+      console.error("Failed to emit socket event", e.message);
+    }
+    
     return res.json({ availability: groupAvailabilityForPublic(fresh) });
   } catch (err) {
     next(err);
@@ -95,6 +118,17 @@ router.delete("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR")
       doctor.availability.splice(loc.d, 1);
     }
     await doctor.save();
+    
+    // Emit real-time event
+    try {
+      await axios.post("http://api-gateway:8080/api/internal/emit", {
+        event: "availability_updated",
+        payload: { doctorId: doctor._id }
+      });
+    } catch (e) {
+      console.error("Failed to emit socket event", e.message);
+    }
+    
     return res.json({ availability: groupAvailabilityForPublic(doctor) });
   } catch (err) {
     next(err);

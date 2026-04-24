@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
 import { Button } from "../ui/Button.jsx";
@@ -96,10 +97,18 @@ export function PatientDashboard() {
 
   useEffect(() => {
     loadAvailability();
-    const t = setInterval(() => {
-      if (doctorId) loadAvailability();
-    }, 5000);
-    return () => clearInterval(t);
+    
+    const socket = io();
+    socket.on("availability_updated", (data) => {
+      if (!data || data.doctorId === doctorId) {
+        loadAvailability();
+      }
+    });
+    socket.on("appointment_updated", () => {
+      load();
+    });
+    
+    return () => socket.disconnect();
   }, [doctorId]);
 
   async function book() {
@@ -209,7 +218,13 @@ export function PatientDashboard() {
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label>Live availability</Label>
-                <span className="text-[11px] text-slate-500">Refreshes every 5s</span>
+                <span className="text-[11px] text-emerald-500 font-semibold flex items-center gap-1">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  Live updates
+                </span>
               </div>
               {!doctorId ? <div className="text-sm text-slate-600">Pick a doctor to load their calendar.</div> : null}
               {doctorId && availability.length === 0 ? (

@@ -29,6 +29,9 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
     const newSlots = [];
     for (const s of body.slots) {
       const { startTime, endTime, time } = parseTimeRangeOnDate(body.date, s.time);
+      if (startTime.getTime() < Date.now()) {
+        return res.status(400).json({ error: "CANNOT_ADD_PAST_TIME_SLOT" });
+      }
       newSlots.push({ time, startTime, endTime, enabled: body.enabled, isBooked: false, bookedByPatientId: null, appointmentId: null });
     }
 

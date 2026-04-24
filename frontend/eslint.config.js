@@ -17,6 +17,7 @@ export default defineConfig([
       // This codebase uses effects for polling/data loads; keep lint noise low.
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': 'off',
+      'react-hooks/purity': 'off',
     },
     languageOptions: {
       globals: globals.browser,

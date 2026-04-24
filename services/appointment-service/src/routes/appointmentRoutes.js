@@ -23,18 +23,20 @@ const medicineInputSchema = z.object({
 const bookLegacySchema = z.object({
   doctorId: z.string().min(1),
   startTime: z.string().datetime(),
-  durationMinutes: z.number().int().positive().max(240).optional().default(30)
+  durationMinutes: z.number().int().positive().max(240).optional().default(30),
+  problemDescription: z.string().max(600).optional().default("")
 });
 
 const bookSlotSchema = z.object({
   doctorId: z.string().min(1),
-  slotId: z.string().min(1)
+  slotId: z.string().min(1),
+  problemDescription: z.string().max(600).optional().default("")
 });
 
 async function handleBookAppointment(req, res, next) {
   try {
     if (req.body?.slotId && String(req.body.slotId).trim() !== "") {
-      const { doctorId, slotId } = bookSlotSchema.parse(req.body);
+      const { doctorId, slotId, problemDescription } = bookSlotSchema.parse(req.body);
       const lock = await lockSlot({ doctorId, slotId, patientId: req.user.id });
       if (!lock.ok) return res.status(409).json({ error: lock.error || "SLOT_UNAVAILABLE" });
 
@@ -60,7 +62,8 @@ async function handleBookAppointment(req, res, next) {
           startTime: start,
           endTime: end,
           status: "PENDING",
-          slotId
+          slotId,
+          problemDescription: problemDescription || ""
         });
         await setSlotAppointment({ doctorId, slotId, appointmentId: appt._id.toString() });
       } catch (e) {
@@ -93,7 +96,7 @@ async function handleBookAppointment(req, res, next) {
       return res.status(201).json({ appointment: appt });
     }
 
-    const { doctorId, startTime, durationMinutes } = bookLegacySchema.parse(req.body);
+    const { doctorId, startTime, durationMinutes, problemDescription } = bookLegacySchema.parse(req.body);
     const start = new Date(startTime);
     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
@@ -111,7 +114,8 @@ async function handleBookAppointment(req, res, next) {
       patientId: req.user.id,
       startTime: start,
       endTime: end,
-      status: "PENDING"
+      status: "PENDING",
+      problemDescription: problemDescription || ""
     });
 
     const refreshedUsers = await lookupUsers([doctorId, req.user.id]);
@@ -252,7 +256,7 @@ router.post("/appointments/:id/prescription", requireAuth, requireRole("DOCTOR")
     const appt = await Appointment.findById(req.params.id);
     if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
     if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
-    if (appt.status !== "ACCEPTED") return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
+    if (appt.status !== "COMPLETED") return res.status(409).json({ error: "PRESCRIBE_AFTER_COMPLETION_REQUIRED" });
 
     appt.prescription = { medicines, notes: notes || "" };
     await appt.save();
@@ -290,7 +294,7 @@ router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("D
     const appt = await Appointment.findById(req.params.id);
     if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
     if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
-    if (!["PENDING", "ACCEPTED"].includes(appt.status)) return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
+    if (!["PENDING", "ACCEPTED", "COMPLETED"].includes(appt.status)) return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
 
     appt.consultationNotes = consultationNotes;
     await appt.save();
@@ -308,10 +312,8 @@ router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("D
 });
 
 const consultationSchema = z.object({
-  medicines: z.array(medicineInputSchema).optional(),
   consultationNotes: z.string().optional().default(""),
   notes: z.string().optional(),
-  prescriptionNotes: z.string().optional(),
   followUpRecommended: z.boolean().optional().default(false),
   followUpDate: z.string().datetime().optional()
 });
@@ -319,30 +321,24 @@ const consultationSchema = z.object({
 router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR"), async (req, res, next) => {
   try {
     const parsed = consultationSchema.parse(req.body);
-    const { medicines, followUpRecommended, followUpDate } = parsed;
+    const { followUpRecommended, followUpDate } = parsed;
     const consultationNotes = parsed.consultationNotes || parsed.notes || "";
-    const prescriptionNotes = parsed.prescriptionNotes;
 
     const appt = await Appointment.findById(req.params.id);
     if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
     if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
     if (appt.status !== "ACCEPTED") return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
 
-    if (consultationNotes) appt.consultationNotes = consultationNotes;
-
-    if (medicines && medicines.length > 0) {
-      appt.prescription = {
-        medicines,
-        notes: prescriptionNotes !== undefined ? prescriptionNotes : appt.prescription?.notes || ""
-      };
-    } else if (prescriptionNotes !== undefined && appt.prescription) {
-      appt.prescription.notes = prescriptionNotes;
+    // Must not complete early
+    if (Date.now() < new Date(appt.startTime).getTime()) {
+      return res.status(409).json({ error: "TOO_EARLY_TO_COMPLETE" });
     }
-
-    const hasRx = appt.prescription && Array.isArray(appt.prescription.medicines) && appt.prescription.medicines.length > 0;
-    if (!consultationNotes.trim() && !hasRx) {
-      return res.status(400).json({ error: "CONSULTATION_REQUIRES_NOTES_OR_PRESCRIPTION" });
+    // Prescribing happens after completion (separate endpoint)
+    if (req.body?.medicines !== undefined || req.body?.prescriptionNotes !== undefined) {
+      return res.status(400).json({ error: "PRESCRIBE_AFTER_COMPLETION_REQUIRED" });
     }
+    if (!consultationNotes.trim()) return res.status(400).json({ error: "CONSULTATION_NOTES_REQUIRED" });
+    appt.consultationNotes = consultationNotes.trim();
 
     appt.status = "COMPLETED";
     if (followUpRecommended && followUpDate) {
@@ -354,19 +350,6 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
 
     const users = await lookupUsers([appt.doctorId, appt.patientId]);
     const doctorEmail = users.get(appt.doctorId)?.email || "doctor";
-
-    if (hasRx) {
-      await notify({
-        userId: appt.patientId,
-        type: "PRESCRIPTION_ADDED",
-        message: `Consultation completed with ${doctorEmail}. Your prescription is available.`
-      });
-      await upsertMedicineReminder({
-        userId: appt.patientId,
-        appointmentId: appt._id.toString(),
-        medicines: appt.prescription.medicines
-      });
-    }
 
     await notify({
       userId: appt.patientId,

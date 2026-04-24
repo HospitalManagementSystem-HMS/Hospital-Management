@@ -37,6 +37,7 @@ const appointmentSchema = new mongoose.Schema(
     endTime: { type: Date, required: true },
     status: { type: String, enum: APPOINTMENT_STATUSES, required: true, default: "PENDING", index: true },
     slotId: { type: String, default: null },
+    problemDescription: { type: String, default: "" },
     consultationNotes: { type: String, default: "" },
     prescription: { type: prescriptionSchema, default: undefined },
     followUpDate: { type: Date, default: undefined }

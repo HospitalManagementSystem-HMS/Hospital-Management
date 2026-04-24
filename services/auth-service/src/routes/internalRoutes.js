@@ -109,8 +109,6 @@ router.post("/users/:id/verify-password", async (req, res, next) => {
 });
 
 const patchUserSchema = z.object({
-  email: z.string().email().optional(),
-  name: z.string().optional(),
   phone: z.string().optional(),
   newPassword: z.string().min(8).optional()
 });
@@ -122,12 +120,10 @@ router.patch("/users/:id", async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
-    if (body.email && body.email !== user.email) {
-      const taken = await User.findOne({ email: body.email, _id: { $ne: user._id } });
-      if (taken) return res.status(409).json({ error: "EMAIL_IN_USE" });
-      user.email = body.email;
+    // Name/email are immutable by contract (profile restrictions)
+    if (req.body?.email !== undefined || req.body?.name !== undefined) {
+      return res.status(400).json({ error: "IMMUTABLE_FIELD" });
     }
-    if (body.name !== undefined) user.name = body.name;
     if (body.phone !== undefined) user.phone = body.phone;
     if (body.newPassword) {
       user.passwordHash = await bcrypt.hash(body.newPassword, 12);

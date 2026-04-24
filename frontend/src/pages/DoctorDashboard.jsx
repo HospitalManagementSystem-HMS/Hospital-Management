@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
@@ -160,9 +160,7 @@ export function DoctorDashboard() {
   function openComplete(a) {
     setError("");
     setTargetAppt(a);
-    setMedicines([emptyMedicineRow()]);
     setConsultationNotes(a.consultationNotes || "");
-    setPrescriptionNotes(a.prescription?.notes || "");
     setFollowUpRecommended(false);
     setFollowUpDate("");
     setCompleteOpen(true);
@@ -200,14 +198,11 @@ export function DoctorDashboard() {
   async function submitCompletion() {
     if (!targetAppt) return;
     setError("");
-    const cleanedRows = medicines.map(rowToMedicine).filter((m) => m.name && m.instructions && m.schedule.length > 0);
     const payload = {
       consultationNotes,
-      prescriptionNotes,
       followUpRecommended,
       followUpDate: followUpRecommended && followUpDate ? new Date(followUpDate).toISOString() : undefined
     };
-    if (cleanedRows.length > 0) payload.medicines = cleanedRows;
     try {
       await api.post(`/appointments/${targetAppt._id}/consultation`, payload);
       setCompleteOpen(false);
@@ -365,14 +360,15 @@ export function DoctorDashboard() {
                     <Badge tone={tone(a.status)}>{a.status}</Badge>
                   </div>
                   <div className="text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+                  {a.problemDescription ? (
+                    <div className="rounded-xl border border-white/60 bg-white/70 p-3 text-xs text-slate-700">
+                      <span className="font-semibold">Problem:</span> {a.problemDescription}
+                    </div>
+                  ) : null}
                   {a.consultationNotes ? <div className="text-xs text-slate-600">Notes on file</div> : null}
-                  {a.prescription?.medicines?.length ? <div className="text-xs text-emerald-700">Prescription staged</div> : null}
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="subtle" onClick={() => openNotes(a)}>
                       Visit notes
-                    </Button>
-                    <Button size="sm" variant="subtle" onClick={() => openRx(a)}>
-                      Prescription
                     </Button>
                     <Button size="sm" onClick={() => openComplete(a)}>
                       Complete visit
@@ -398,6 +394,12 @@ export function DoctorDashboard() {
                     <Badge tone={tone(a.status)}>{a.status}</Badge>
                   </div>
                   <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+                  {a.problemDescription ? <div className="mt-2 text-xs text-slate-600">Problem: {a.problemDescription}</div> : null}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button size="sm" variant="subtle" onClick={() => openRx(a)}>
+                      {a.prescription?.medicines?.length ? "Update prescription" : "Add prescription"}
+                    </Button>
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -514,7 +516,9 @@ export function DoctorDashboard() {
         }
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-          <div className="text-xs text-slate-600">You may attach medicines here or rely on a prescription saved earlier. At least notes or a prescription must exist.</div>
+          <div className="text-xs text-slate-600">
+            Completion is allowed only after the scheduled time starts. Prescriptions are added after completion.
+          </div>
           <div className="space-y-2">
             <Label>Consultation notes</Label>
             <textarea
@@ -523,53 +527,6 @@ export function DoctorDashboard() {
               value={consultationNotes}
               onChange={(e) => setConsultationNotes(e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Prescription notes</Label>
-            <textarea
-              className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
-              rows={2}
-              value={prescriptionNotes}
-              onChange={(e) => setPrescriptionNotes(e.target.value)}
-            />
-          </div>
-          <div className="space-y-3">
-            <div className="text-sm font-semibold text-slate-900">Optional medicines (overrides staged prescription)</div>
-            {medicines.map((m, idx) => (
-              <div key={idx} className="rounded-2xl border border-white/60 bg-white/60 p-3 space-y-3">
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <Input
-                    value={m.name}
-                    onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
-                    placeholder="Medicine name"
-                  />
-                  <Input
-                    value={m.instructions}
-                    onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, instructions: e.target.value } : x)))}
-                    placeholder="Instructions"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm text-slate-800">
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={m.morning} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, morning: e.target.checked } : x)))} />
-                    Morning
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={m.noon} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, noon: e.target.checked } : x)))} />
-                    Noon
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={m.night} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, night: e.target.checked } : x)))} />
-                    Night
-                  </label>
-                </div>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Button size="sm" variant="subtle" onClick={() => setMedicines((prev) => [...prev, emptyMedicineRow()])}>
-                Add medicine
-              </Button>
-            </div>
           </div>
           <div className="rounded-2xl border border-white/60 bg-white/50 p-4">
             <div className="flex items-center justify-between gap-3">

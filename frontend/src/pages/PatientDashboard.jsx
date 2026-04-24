@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
@@ -40,6 +40,7 @@ export function PatientDashboard() {
   const [doctorId, setDoctorId] = useState("");
   const [availability, setAvailability] = useState([]);
   const [selectedSlotId, setSelectedSlotId] = useState("");
+  const [problemDescription, setProblemDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -107,8 +108,9 @@ export function PatientDashboard() {
     if (!selectedSlotId) return setError("Select an available slot");
     setBusy(true);
     try {
-      await api.post("/appointment/book", { doctorId, slotId: selectedSlotId });
+      await api.post("/appointment/book", { doctorId, slotId: selectedSlotId, problemDescription });
       setSelectedSlotId("");
+      setProblemDescription("");
       await Promise.all([load(), loadAvailability()]);
     } catch (err) {
       setError(err?.response?.data?.error || "Booking failed");
@@ -164,6 +166,19 @@ export function PatientDashboard() {
             <CardTitle>Book appointment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className={`rounded-full border px-2 py-0.5 ${doctorId ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                1 · Doctor
+              </span>
+              <span className={`rounded-full border px-2 py-0.5 ${selectedSlotId ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                2 · Slot
+              </span>
+              <span className={`rounded-full border px-2 py-0.5 ${problemDescription.trim() ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                3 · Problem
+              </span>
+              <span className="text-slate-500">→</span>
+              <span className="text-slate-600">Lock & request</span>
+            </div>
             <div className="space-y-2">
               <Label>Doctor</Label>
               <select
@@ -178,6 +193,18 @@ export function PatientDashboard() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Problem description</Label>
+              <textarea
+                className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+                rows={3}
+                maxLength={600}
+                value={problemDescription}
+                onChange={(e) => setProblemDescription(e.target.value)}
+                placeholder="2–3 lines about symptoms / reason for visit…"
+              />
+              <div className="text-[11px] text-slate-500">{problemDescription.length}/600</div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
@@ -237,6 +264,11 @@ export function PatientDashboard() {
                   <Badge tone={statusTone(a.status)}>{a.status}</Badge>
                 </div>
                 <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+                {a.problemDescription ? (
+                  <div className="mt-2 text-xs text-slate-600">
+                    <span className="font-semibold">Problem:</span> {a.problemDescription}
+                  </div>
+                ) : null}
                 {a.consultationNotes ? (
                   <div className="mt-3 rounded-xl border border-white/60 bg-white/70 p-3 text-xs text-slate-700">
                     <span className="font-semibold">Clinical notes:</span> {a.consultationNotes}

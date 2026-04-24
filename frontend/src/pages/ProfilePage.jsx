@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api.js";
 import { setToken } from "../lib/authStorage.js";
@@ -6,34 +6,26 @@ import { useAuth } from "../state/auth.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
 import { Button } from "../ui/Button.jsx";
 import { Input, Label } from "../ui/Input.jsx";
+import { SPECIALIZATIONS } from "../constants/specializations.js";
 
 export function ProfilePage() {
   const { user, refreshMe } = useAuth();
-  const [auth, setAuth] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [medicalHistory, setMedicalHistory] = useState("");
   const [specialization, setSpecialization] = useState("");
-  const [experienceYears, setExperienceYears] = useState("0");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [adminTargetUserId, setAdminTargetUserId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   async function load() {
     const resp = await api.get("/profile/me");
-    setAuth(resp.data.auth);
-    setProfile(resp.data.profile);
     setName(resp.data.auth?.name || resp.data.profile?.name || "");
     setEmail(resp.data.auth?.email || "");
     setPhone(resp.data.auth?.phone || resp.data.profile?.phone || "");
-    if (resp.data.profile?.medicalHistory !== undefined) setMedicalHistory(resp.data.profile.medicalHistory || "");
     if (resp.data.profile?.specialization !== undefined) setSpecialization(resp.data.profile.specialization || "");
-    if (resp.data.profile?.experienceYears !== undefined) setExperienceYears(String(resp.data.profile.experienceYears ?? 0));
   }
 
   useEffect(() => {
@@ -47,29 +39,18 @@ export function ProfilePage() {
     setBusy(true);
     try {
       const payload = {
-        name,
-        email,
         phone
       };
-      if (user?.role === "PATIENT") payload.medicalHistory = medicalHistory;
-      if (user?.role === "DOCTOR") {
-        payload.specialization = specialization;
-        payload.experienceYears = Number(experienceYears || 0);
-      }
+      if (user?.role === "DOCTOR") payload.specialization = specialization;
       if (newPassword) {
         payload.newPassword = newPassword;
         payload.currentPassword = currentPassword;
-      }
-      if (user?.role === "ADMIN" && adminTargetUserId.trim()) {
-        payload.userId = adminTargetUserId.trim();
       }
       const resp = await api.put("/profile/update", payload);
       if (resp.data.token) {
         setToken(resp.data.token);
         await refreshMe();
       }
-      setAuth(resp.data.auth);
-      setProfile(resp.data.profile);
       setSuccess("Profile saved");
       setCurrentPassword("");
       setNewPassword("");
@@ -95,22 +76,14 @@ export function ProfilePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={save} className="space-y-4">
-              {user?.role === "ADMIN" ? (
-                <div className="space-y-2">
-                  <Label>Admin override user ID (optional)</Label>
-                  <Input value={adminTargetUserId} onChange={(e) => setAdminTargetUserId(e.target.value)} placeholder="Leave blank to edit yourself" />
-                  <div className="text-xs text-slate-500">When set, updates apply to the selected account instead of yours.</div>
-                </div>
-              ) : null}
-
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Name</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} required />
+                  <Input value={name} readOnly disabled className="opacity-80" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+                  <Input value={email} readOnly disabled className="opacity-80" type="email" />
                 </div>
               </div>
 
@@ -119,28 +92,21 @@ export function ProfilePage() {
                 <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 …" />
               </div>
 
-              {user?.role === "PATIENT" ? (
-                <div className="space-y-2">
-                  <Label>Medical history notes</Label>
-                  <textarea
-                    className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
-                    rows={4}
-                    value={medicalHistory}
-                    onChange={(e) => setMedicalHistory(e.target.value)}
-                  />
-                </div>
-              ) : null}
-
               {user?.role === "DOCTOR" ? (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Specialization</Label>
-                    <Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Experience (years)</Label>
-                    <Input value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} type="number" min={0} />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Specialization</Label>
+                  <select
+                    className="h-11 w-full rounded-xl border border-white/70 bg-white/70 px-4 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                  >
+                    <option value="">Select specialization</option>
+                    {SPECIALIZATIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ) : null}
 
@@ -156,7 +122,7 @@ export function ProfilePage() {
                     <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" />
                   </div>
                 </div>
-                <div className="text-xs text-slate-500">Required when changing email or password for your own account.</div>
+                <div className="text-xs text-slate-500">Required when changing your password.</div>
               </div>
 
               {error ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{error}</div> : null}
@@ -170,24 +136,7 @@ export function ProfilePage() {
         </Card>
       </motion.div>
 
-      <Card className="border-white/70 bg-white/55 backdrop-blur-xl">
-        <CardHeader>
-          <CardTitle>Directory snapshot</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-slate-700 space-y-2">
-          <div>
-            <span className="font-semibold">Role:</span> {auth?.role}
-          </div>
-          <div>
-            <span className="font-semibold">Auth ID:</span> {auth?.id}
-          </div>
-          {profile ? (
-            <pre className="mt-3 max-h-64 overflow-auto rounded-xl bg-slate-900/90 text-emerald-100 p-3 text-xs">{JSON.stringify(profile, null, 2)}</pre>
-          ) : (
-            <div className="text-slate-500">No extended profile row (admin accounts).</div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Directory snapshot removed (non-production UI) */}
     </div>
   );
 }

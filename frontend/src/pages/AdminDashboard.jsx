@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
@@ -289,7 +289,7 @@ export function AdminDashboard() {
               <div className="text-lg font-semibold text-slate-900">{detail.data.doctor.name}</div>
               <div className="text-sm text-slate-600">{detail.data.doctor.email}</div>
               <div className="mt-2 text-xs text-slate-600">
-                {detail.data.doctor.specialization} · {detail.data.doctor.experienceYears ?? 0} yrs experience
+                {detail.data.doctor.specialization}
               </div>
             </div>
             <div>
@@ -329,11 +329,7 @@ export function AdminDashboard() {
             <div>
               <div className="text-lg font-semibold text-slate-900">{detail.data.patient.name}</div>
               <div className="text-sm text-slate-600">{detail.data.patient.email}</div>
-              {detail.data.patient.medicalHistory ? (
-                <div className="mt-3 rounded-xl border border-white/60 bg-white/60 p-3 text-xs text-slate-700">
-                  <span className="font-semibold">History:</span> {detail.data.patient.medicalHistory}
-                </div>
-              ) : null}
+              {/* medical history removed by scope */}
             </div>
             <div>
               <div className="text-sm font-semibold text-slate-900">Appointments</div>

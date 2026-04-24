@@ -1,4 +1,3 @@
-import React from "react";
 import { cn } from "../lib/cn";
 
 export function Button({ className, variant = "primary", size = "md", ...props }) {

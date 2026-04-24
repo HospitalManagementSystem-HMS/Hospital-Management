@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { clearToken, getToken, setToken } from "../lib/authStorage";
 
@@ -30,7 +30,6 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     refreshMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function login({ email, password }) {

@@ -6,6 +6,7 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { Doctor } = require("../models/Doctor");
 const { Patient } = require("../models/Patient");
 const { buildAvailabilityDaysFromSpec } = require("../utils/availability");
+const { SPECIALIZATIONS } = require("../constants/specializations");
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ const createDoctorSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  specialization: z.string().min(1),
+  specialization: z.enum(SPECIALIZATIONS),
   experienceYears: z.coerce.number().int().min(0).optional().default(0),
   phone: z.string().optional().default(""),
   availability: z
@@ -205,7 +206,6 @@ router.get("/admin/patients", requireAuth, requireRole("ADMIN"), async (_req, re
         name: p.name,
         email: p.email,
         phone: p.phone,
-        medicalHistory: p.medicalHistory,
         createdAt: p.createdAt
       }))
     });
@@ -265,7 +265,6 @@ router.get("/admin/patients/:id", requireAuth, requireRole("ADMIN"), async (req,
         name: patient.name,
         email: patient.email,
         phone: patient.phone,
-        medicalHistory: patient.medicalHistory,
         createdAt: patient.createdAt
       },
       appointments,

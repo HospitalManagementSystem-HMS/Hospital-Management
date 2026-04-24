@@ -22,9 +22,6 @@ router.get("/users/me", requireAuth, (req, res) => proxyToService({ req, res, ba
 
 // Profile management (user-service)
 router.get("/profile/me", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/profile/me" }));
-router.get("/profile/user/:userId", requireAuth, requireRole("ADMIN"), (req, res) =>
-  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/profile/user/${req.params.userId}` })
-);
 router.put("/profile/update", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/profile/update" }));
 
 // Doctor availability (user-service)

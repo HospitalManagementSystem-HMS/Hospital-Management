@@ -5,6 +5,7 @@ const env = require("../config/env");
 const { requireAuth } = require("../middleware/requireAuth");
 const { Doctor } = require("../models/Doctor");
 const { Patient } = require("../models/Patient");
+const { SPECIALIZATIONS } = require("../constants/specializations");
 
 const router = express.Router();
 
@@ -32,37 +33,9 @@ router.get("/profile/me", requireAuth, async (req, res, next) => {
   }
 });
 
-const adminUserIdParam = z.object({
-  userId: z.string().min(1)
-});
-
-router.get("/profile/user/:userId", requireAuth, async (req, res, next) => {
-  try {
-    if (req.user.role !== "ADMIN") return res.status(403).json({ error: "FORBIDDEN" });
-    adminUserIdParam.parse({ userId: req.params.userId });
-    const authUser = await fetchAuthUser(req.params.userId);
-    let profile = null;
-    if (authUser.role === "DOCTOR") {
-      const doctor = await Doctor.findOne({ authUserId: req.params.userId, deletedAt: null });
-      profile = doctor ? { ...doctor.toObject(), id: doctor.authUserId } : null;
-    } else if (authUser.role === "PATIENT") {
-      const patient = await Patient.findOne({ authUserId: req.params.userId });
-      profile = patient ? { ...patient.toObject(), id: patient.authUserId } : null;
-    }
-    return res.json({ auth: authUser, profile });
-  } catch (err) {
-    return next(err);
-  }
-});
-
 const updateProfileSchema = z.object({
-  userId: z.string().optional(),
-  name: z.string().optional(),
-  email: z.string().email().optional(),
   phone: z.string().optional(),
-  medicalHistory: z.string().optional(),
-  specialization: z.string().optional(),
-  experienceYears: z.coerce.number().int().min(0).optional(),
+  specialization: z.enum(SPECIALIZATIONS).optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8).optional()
 });
@@ -70,15 +43,27 @@ const updateProfileSchema = z.object({
 router.put("/profile/update", requireAuth, async (req, res, next) => {
   try {
     const body = updateProfileSchema.parse(req.body);
-    const isAdmin = req.user.role === "ADMIN";
-    const targetId = isAdmin && body.userId ? body.userId : req.user.id;
-    if (!isAdmin && body.userId && body.userId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
+    const targetId = req.user.id;
 
     const authUser = await fetchAuthUser(targetId);
-    const selfEdit = targetId === req.user.id;
+    const selfEdit = true;
 
-    const needsPasswordProof = Boolean(body.newPassword || (body.email && body.email !== authUser.email));
-    if (needsPasswordProof && !(isAdmin && !selfEdit)) {
+    // name/email/medicalHistory/experienceYears/admin override are removed by strict scope.
+    if (req.body?.name !== undefined || req.body?.email !== undefined) {
+      return res.status(400).json({ error: "IMMUTABLE_FIELD" });
+    }
+    if (req.body?.userId !== undefined) {
+      return res.status(400).json({ error: "ADMIN_OVERRIDE_REMOVED" });
+    }
+    if (req.body?.medicalHistory !== undefined) {
+      return res.status(400).json({ error: "FIELD_REMOVED" });
+    }
+    if (req.body?.experienceYears !== undefined) {
+      return res.status(400).json({ error: "FIELD_REMOVED" });
+    }
+
+    const needsPasswordProof = Boolean(body.newPassword);
+    if (needsPasswordProof) {
       if (!body.currentPassword) return res.status(400).json({ error: "CURRENT_PASSWORD_REQUIRED" });
       try {
         await axios.post(
@@ -93,8 +78,6 @@ router.put("/profile/update", requireAuth, async (req, res, next) => {
     }
 
     const authPatch = {};
-    if (body.name !== undefined) authPatch.name = body.name;
-    if (body.email !== undefined) authPatch.email = body.email;
     if (body.phone !== undefined) authPatch.phone = body.phone;
     if (body.newPassword) authPatch.newPassword = body.newPassword;
 
@@ -108,11 +91,8 @@ router.put("/profile/update", requireAuth, async (req, res, next) => {
 
     if (authUser.role === "DOCTOR") {
       const doctorPatch = {};
-      if (body.name !== undefined) doctorPatch.name = body.name;
-      if (body.email !== undefined) doctorPatch.email = body.email;
       if (body.phone !== undefined) doctorPatch.phone = body.phone;
       if (body.specialization !== undefined) doctorPatch.specialization = body.specialization;
-      if (body.experienceYears !== undefined) doctorPatch.experienceYears = body.experienceYears;
       if (Object.keys(doctorPatch).length > 0) {
         await Doctor.findOneAndUpdate({ authUserId: targetId, deletedAt: null }, doctorPatch);
       }
@@ -120,10 +100,7 @@ router.put("/profile/update", requireAuth, async (req, res, next) => {
 
     if (authUser.role === "PATIENT") {
       const patientPatch = {};
-      if (body.name !== undefined) patientPatch.name = body.name;
-      if (body.email !== undefined) patientPatch.email = body.email;
       if (body.phone !== undefined) patientPatch.phone = body.phone;
-      if (body.medicalHistory !== undefined) patientPatch.medicalHistory = body.medicalHistory;
       if (Object.keys(patientPatch).length > 0) {
         await Patient.findOneAndUpdate({ authUserId: targetId }, patientPatch);
       }

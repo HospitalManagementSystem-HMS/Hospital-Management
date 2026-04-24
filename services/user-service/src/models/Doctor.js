@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { SPECIALIZATIONS } = require("../constants/specializations");
 
 const slotSchema = new mongoose.Schema(
   {
@@ -24,10 +25,10 @@ const dayAvailabilitySchema = new mongoose.Schema(
 const doctorSchema = new mongoose.Schema(
   {
     authUserId: { type: String, required: true, unique: true, index: true },
-    email: { type: String, required: true, lowercase: true, trim: true },
-    name: { type: String, required: true },
+    email: { type: String, required: true, lowercase: true, trim: true, immutable: true },
+    name: { type: String, required: true, immutable: true },
     phone: { type: String, default: "" },
-    specialization: { type: String, required: true },
+    specialization: { type: String, required: true, enum: SPECIALIZATIONS },
     experienceYears: { type: Number, default: 0 },
     availability: { type: [dayAvailabilitySchema], default: [] },
     deletedAt: { type: Date, default: null }

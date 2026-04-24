@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Bell, LogOut, Stethoscope, Shield, CalendarDays, HeartPulse, UserRound } from "lucide-react";
 import { useAuth } from "../state/auth.jsx";

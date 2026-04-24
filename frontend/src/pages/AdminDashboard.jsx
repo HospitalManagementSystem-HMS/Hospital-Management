@@ -15,6 +15,7 @@ function toneForStatus(status) {
   if (status === "ACCEPTED") return "ok";
   if (status === "REJECTED") return "danger";
   if (status === "PENDING") return "warn";
+  if (status === "CANCELLED") return "danger";
   return "neutral";
 }
 
@@ -90,6 +91,16 @@ export function AdminDashboard() {
     setDetail({ open: true, kind: "patient", data: resp.data });
   }
 
+  async function deleteDoctor(id, label) {
+    if (!window.confirm(`Delete doctor ${label}? This cancels active appointments and removes their account.`)) return;
+    try {
+      await api.delete(`/admin/doctor/${id}`);
+      await load();
+    } catch (err) {
+      alert(err?.response?.data?.error || "Delete failed");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -122,6 +133,7 @@ export function AdminDashboard() {
                       <span>· A {analytics.appointmentsByStatus.ACCEPTED}</span>
                       <span>· R {analytics.appointmentsByStatus.REJECTED}</span>
                       <span>· C {analytics.appointmentsByStatus.COMPLETED}</span>
+                      <span>· X {analytics.appointmentsByStatus.CANCELLED ?? 0}</span>
                     </div>
                   ) : null}
                 </CardContent>
@@ -204,18 +216,22 @@ export function AdminDashboard() {
           <CardContent className="space-y-2 max-h-[360px] overflow-y-auto">
             {doctors.length === 0 ? <div className="text-sm text-slate-600">No doctors yet.</div> : null}
             {doctors.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => openDoctorDetail(d.id)}
-                className="w-full text-left rounded-2xl border border-white/60 bg-gradient-to-r from-white/70 to-sky-50/40 p-4 hover:shadow-sm transition"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900">{d.name}</div>
-                  <Badge tone="info">{d.specialization}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-600">{d.email}</div>
-              </button>
+              <div key={d.id} className="flex gap-2 items-stretch">
+                <button
+                  type="button"
+                  onClick={() => openDoctorDetail(d.id)}
+                  className="flex-1 text-left rounded-2xl border border-white/60 bg-gradient-to-r from-white/70 to-sky-50/40 p-4 hover:shadow-sm transition"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900">{d.name}</div>
+                    <Badge tone="info">{d.specialization}</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">{d.email}</div>
+                </button>
+                <Button variant="danger" className="self-center" onClick={() => deleteDoctor(d.id, d.name)}>
+                  Delete
+                </Button>
+              </div>
             ))}
           </CardContent>
         </Card>

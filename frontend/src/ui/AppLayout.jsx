@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Bell, LogOut, Stethoscope, Shield, CalendarDays, HeartPulse } from "lucide-react";
+import { Bell, LogOut, Stethoscope, Shield, CalendarDays, HeartPulse, UserRound } from "lucide-react";
 import { useAuth } from "../state/auth.jsx";
 import { Drawer } from "./Drawer.jsx";
 import { Button } from "./Button.jsx";
@@ -19,9 +19,10 @@ function formatWhen(iso) {
 }
 
 function bucketForType(type) {
-  if (type.startsWith("APPOINTMENT")) return "care";
+  if (type.startsWith("APPOINTMENT") || type.includes("SLOT") || type.includes("CANCELLED")) return "care";
   if (type.includes("PRESCRIPTION")) return "rx";
   if (type.includes("REMINDER") || type.includes("FOLLOW")) return "rem";
+  if (type.includes("PROFILE")) return "account";
   return "other";
 }
 
@@ -29,6 +30,7 @@ const GROUP_META = {
   care: "Care & visits",
   rx: "Prescriptions",
   rem: "Reminders",
+  account: "Account",
   other: "Operations"
 };
 
@@ -41,8 +43,8 @@ export function AppLayout({ children }) {
   const unread = useMemo(() => notifications.filter((n) => !n.readStatus).length, [notifications]);
 
   const sections = useMemo(() => {
-    const order = ["care", "rx", "rem", "other"];
-    const map = { care: [], rx: [], rem: [], other: [] };
+    const order = ["care", "rx", "rem", "account", "other"];
+    const map = { care: [], rx: [], rem: [], account: [], other: [] };
     for (const n of notifications) {
       map[bucketForType(n.type)].push(n);
     }
@@ -71,9 +73,22 @@ export function AppLayout({ children }) {
 
   const nav = useMemo(() => {
     if (!user) return [];
-    if (user.role === "ADMIN") return [{ to: "/admin", label: "Admin", icon: <Shield className="h-4 w-4" /> }];
-    if (user.role === "DOCTOR") return [{ to: "/doctor", label: "Doctor", icon: <Stethoscope className="h-4 w-4" /> }];
-    return [{ to: "/patient", label: "Patient", icon: <CalendarDays className="h-4 w-4" /> }];
+    if (user.role === "ADMIN") {
+      return [
+        { to: "/admin", label: "Admin", icon: <Shield className="h-4 w-4" /> },
+        { to: "/profile", label: "Profile", icon: <UserRound className="h-4 w-4" /> }
+      ];
+    }
+    if (user.role === "DOCTOR") {
+      return [
+        { to: "/doctor", label: "Doctor", icon: <Stethoscope className="h-4 w-4" /> },
+        { to: "/profile", label: "Profile", icon: <UserRound className="h-4 w-4" /> }
+      ];
+    }
+    return [
+      { to: "/patient", label: "Patient", icon: <CalendarDays className="h-4 w-4" /> },
+      { to: "/profile", label: "Profile", icon: <UserRound className="h-4 w-4" /> }
+    ];
   }, [user]);
 
   return (

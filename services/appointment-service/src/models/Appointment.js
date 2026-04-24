@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const APPOINTMENT_STATUSES = ["PENDING", "ACCEPTED", "REJECTED", "COMPLETED"];
+const APPOINTMENT_STATUSES = ["PENDING", "ACCEPTED", "REJECTED", "COMPLETED", "CANCELLED"];
 const SCHEDULE_SLOTS = ["MORNING", "NOON", "NIGHT"];
 
 const medicineSchema = new mongoose.Schema(
@@ -36,6 +36,7 @@ const appointmentSchema = new mongoose.Schema(
     startTime: { type: Date, required: true, index: true },
     endTime: { type: Date, required: true },
     status: { type: String, enum: APPOINTMENT_STATUSES, required: true, default: "PENDING", index: true },
+    slotId: { type: String, default: null },
     consultationNotes: { type: String, default: "" },
     prescription: { type: prescriptionSchema, default: undefined },
     followUpDate: { type: Date, default: undefined }

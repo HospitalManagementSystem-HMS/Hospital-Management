@@ -1,13 +1,36 @@
 const mongoose = require("mongoose");
 
+const slotSchema = new mongoose.Schema(
+  {
+    time: { type: String, required: true },
+    startTime: { type: Date, required: true },
+    endTime: { type: Date, required: true },
+    isBooked: { type: Boolean, default: false },
+    bookedByPatientId: { type: String, default: null },
+    appointmentId: { type: String, default: null },
+    enabled: { type: Boolean, default: true }
+  },
+  { _id: true }
+);
+
+const dayAvailabilitySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true },
+    slots: { type: [slotSchema], default: [] }
+  },
+  { _id: false }
+);
+
 const doctorSchema = new mongoose.Schema(
   {
     authUserId: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     name: { type: String, required: true },
+    phone: { type: String, default: "" },
     specialization: { type: String, required: true },
     experienceYears: { type: Number, default: 0 },
-    availabilitySlots: { type: [String], default: [] }
+    availability: { type: [dayAvailabilitySchema], default: [] },
+    deletedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );
@@ -15,4 +38,3 @@ const doctorSchema = new mongoose.Schema(
 const Doctor = mongoose.model("Doctor", doctorSchema);
 
 module.exports = { Doctor };
-

@@ -11,15 +11,45 @@ router.post("/auth/register", (req, res) => proxyToService({ req, res, baseURL: 
 router.post("/auth/login", (req, res) => proxyToService({ req, res, baseURL: env.AUTH_SERVICE_URL, path: "/auth/login" }));
 router.get("/auth/me", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.AUTH_SERVICE_URL, path: "/auth/me" }));
 
-// Public doctors list
+// Public doctors + availability
 router.get("/doctors", (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/doctors" }));
+router.get("/doctors/:id/availability", (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/doctors/${req.params.id}/availability` })
+);
 
-// Profiles
+// Profiles (legacy)
 router.get("/users/me", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/users/me" }));
+
+// Profile management (user-service)
+router.get("/profile/me", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/profile/me" }));
+router.get("/profile/user/:userId", requireAuth, requireRole("ADMIN"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/profile/user/${req.params.userId}` })
+);
+router.put("/profile/update", requireAuth, (req, res) => proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/profile/update" }));
+
+// Doctor availability (user-service)
+router.get("/doctor/availability", requireAuth, requireRole("DOCTOR"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/doctor/availability" })
+);
+router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/doctor/availability" })
+);
+router.patch("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/doctor/availability/${req.params.slotId}` })
+);
+router.delete("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/doctor/availability/${req.params.slotId}` })
+);
 
 // Admin (user-service)
 router.post("/admin/doctors", requireAuth, requireRole("ADMIN"), (req, res) =>
   proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/admin/doctors" })
+);
+router.post("/admin/doctor", requireAuth, requireRole("ADMIN"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/admin/doctor" })
+);
+router.delete("/admin/doctor/:id", requireAuth, requireRole("ADMIN"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: `/admin/doctor/${req.params.id}` })
 );
 router.get("/admin/doctors", requireAuth, requireRole("ADMIN"), (req, res) =>
   proxyToService({ req, res, baseURL: env.USER_SERVICE_URL, path: "/admin/doctors" })
@@ -48,6 +78,9 @@ router.get("/admin/activities", requireAuth, requireRole("ADMIN"), (req, res) =>
 // Patient appointments
 router.post("/appointments", requireAuth, requireRole("PATIENT"), (req, res) =>
   proxyToService({ req, res, baseURL: env.APPOINTMENT_SERVICE_URL, path: "/appointments" })
+);
+router.post("/appointment/book", requireAuth, requireRole("PATIENT"), (req, res) =>
+  proxyToService({ req, res, baseURL: env.APPOINTMENT_SERVICE_URL, path: "/appointment/book" })
 );
 router.get("/appointments/me", requireAuth, requireRole("PATIENT"), (req, res) =>
   proxyToService({ req, res, baseURL: env.APPOINTMENT_SERVICE_URL, path: "/appointments/me" })

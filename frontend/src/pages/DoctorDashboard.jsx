@@ -11,6 +11,7 @@ function tone(status) {
   if (status === "PENDING") return "warn";
   if (status === "ACCEPTED") return "ok";
   if (status === "REJECTED") return "danger";
+  if (status === "CANCELLED") return "danger";
   return "neutral";
 }
 
@@ -52,6 +53,11 @@ export function DoctorDashboard() {
   const [followUpRecommended, setFollowUpRecommended] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
   const [error, setError] = useState("");
+  const [myAvailability, setMyAvailability] = useState([]);
+  const [avDate, setAvDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [avTime, setAvTime] = useState("09:00-10:00");
+  const [avBusy, setAvBusy] = useState(false);
+  const [avError, setAvError] = useState("");
 
   const pending = useMemo(() => appointments.filter((a) => a.status === "PENDING"), [appointments]);
   const active = useMemo(() => appointments.filter((a) => a.status === "ACCEPTED"), [appointments]);
@@ -90,11 +96,47 @@ export function DoctorDashboard() {
     load();
   }, []);
 
+  async function loadMyAvailability() {
+    try {
+      const resp = await api.get("/doctor/availability");
+      setMyAvailability(resp.data.availability || []);
+    } catch {
+      setMyAvailability([]);
+    }
+  }
+
+  useEffect(() => {
+    loadMyAvailability();
+  }, []);
+
+  async function addAvailability() {
+    setAvError("");
+    setAvBusy(true);
+    try {
+      await api.post("/doctor/availability", { date: avDate, slots: [{ time: avTime }] });
+      await loadMyAvailability();
+    } catch (e) {
+      setAvError(e?.response?.data?.error || "Failed to add slot");
+    } finally {
+      setAvBusy(false);
+    }
+  }
+
+  async function removeSlot(slotId) {
+    await api.delete(`/doctor/availability/${slotId}`);
+    await loadMyAvailability();
+  }
+
+  async function toggleSlot(slotId, enabled) {
+    await api.patch(`/doctor/availability/${slotId}`, { enabled: !enabled });
+    await loadMyAvailability();
+  }
+
   async function decide(id, status) {
     setBusyId(id);
     try {
       await api.patch(`/appointments/${id}/decision`, { status });
-      await load();
+      await Promise.all([load(), loadMyAvailability()]);
     } finally {
       setBusyId("");
     }
@@ -182,10 +224,74 @@ export function DoctorDashboard() {
           <div className="text-2xl font-semibold tracking-tight text-slate-900">Clinical cockpit</div>
           <div className="mt-1 text-sm text-slate-600">Triage requests, orchestrate visits, digitize therapeutics with structured dosing windows.</div>
         </div>
-        <Button variant="subtle" onClick={load}>
+        <Button
+          variant="subtle"
+          onClick={() => {
+            load();
+            loadMyAvailability();
+          }}
+        >
           Refresh
         </Button>
       </div>
+
+      <Card className="border-white/70 bg-white/55 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle>Availability studio</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={avDate} onChange={(e) => setAvDate(e.target.value)} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Slot window (24h HH:MM-HH:MM)</Label>
+              <Input value={avTime} onChange={(e) => setAvTime(e.target.value)} placeholder="09:00-10:00" />
+            </div>
+          </div>
+          {avError ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{avError}</div> : null}
+          <Button onClick={addAvailability} disabled={avBusy}>
+            {avBusy ? "Publishing…" : "Add slot"}
+          </Button>
+          <div className="grid grid-cols-1 gap-3 max-h-[320px] overflow-y-auto pr-1">
+            {myAvailability.map((day) => (
+              <div key={day.date} className="rounded-2xl border border-white/60 bg-white/60 p-3">
+                <div className="text-xs font-semibold text-slate-700">{day.date}</div>
+                <div className="mt-2 space-y-2">
+                  {(day.slots || []).map((slot) => {
+                    const booked = slot.isBooked;
+                    const enabled = slot.enabled !== false;
+                    return (
+                      <div
+                        key={slot.slotId}
+                        className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                          booked ? "border-rose-200 bg-rose-50" : enabled ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-900">{slot.time}</div>
+                          <div className="text-[11px] text-slate-600">
+                            {booked ? "Booked" : enabled ? "Open" : "Paused"}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="subtle" disabled={booked} onClick={() => toggleSlot(slot.slotId, enabled)}>
+                            {enabled ? "Pause" : "Resume"}
+                          </Button>
+                          <Button size="sm" variant="danger" disabled={booked} onClick={() => removeSlot(slot.slotId)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-white/70 bg-white/55 backdrop-blur-xl overflow-hidden">
         <CardHeader>

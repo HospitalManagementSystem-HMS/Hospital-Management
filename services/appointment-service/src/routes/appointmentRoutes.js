@@ -4,6 +4,7 @@ const { Appointment } = require("../models/Appointment");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { lookupUsers } = require("../services/authLookup");
 const { notify, logActivity, upsertMedicineReminder, upsertFollowUpReminder } = require("../services/notifier");
+const { lockSlot, releaseSlot, setSlotAppointment } = require("../services/userClient");
 
 const router = express.Router();
 
@@ -19,15 +20,80 @@ const medicineInputSchema = z.object({
   schedule: z.array(scheduleEnum).min(1)
 });
 
-const bookSchema = z.object({
+const bookLegacySchema = z.object({
   doctorId: z.string().min(1),
   startTime: z.string().datetime(),
   durationMinutes: z.number().int().positive().max(240).optional().default(30)
 });
 
-router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, res, next) => {
+const bookSlotSchema = z.object({
+  doctorId: z.string().min(1),
+  slotId: z.string().min(1)
+});
+
+async function handleBookAppointment(req, res, next) {
   try {
-    const { doctorId, startTime, durationMinutes } = bookSchema.parse(req.body);
+    if (req.body?.slotId && String(req.body.slotId).trim() !== "") {
+      const { doctorId, slotId } = bookSlotSchema.parse(req.body);
+      const lock = await lockSlot({ doctorId, slotId, patientId: req.user.id });
+      if (!lock.ok) return res.status(409).json({ error: lock.error || "SLOT_UNAVAILABLE" });
+
+      const start = lock.startTime;
+      const end = lock.endTime;
+
+      const overlap = await Appointment.findOne({
+        doctorId,
+        status: { $in: ["PENDING", "ACCEPTED"] },
+        startTime: { $lt: end },
+        endTime: { $gt: start }
+      });
+      if (overlap) {
+        await releaseSlot({ doctorId, slotId, patientId: req.user.id });
+        return res.status(409).json({ error: "SLOT_UNAVAILABLE" });
+      }
+
+      let appt;
+      try {
+        appt = await Appointment.create({
+          doctorId,
+          patientId: req.user.id,
+          startTime: start,
+          endTime: end,
+          status: "PENDING",
+          slotId
+        });
+        await setSlotAppointment({ doctorId, slotId, appointmentId: appt._id.toString() });
+      } catch (e) {
+        await releaseSlot({ doctorId, slotId, patientId: req.user.id });
+        throw e;
+      }
+
+      const refreshedUsers = await lookupUsers([doctorId, req.user.id]);
+      const doctorEmail = refreshedUsers.get(doctorId)?.email || "doctor";
+      const patientEmail = refreshedUsers.get(req.user.id)?.email || "patient";
+
+      await notify({
+        userId: doctorId,
+        type: "APPOINTMENT_UPDATE",
+        message: `New appointment request from ${patientEmail} for ${toISOString(start)} (slot locked).`
+      });
+
+      await notify({
+        userId: req.user.id,
+        type: "SLOT_BOOKED",
+        message: `You booked a slot with ${doctorEmail} for ${toISOString(start)}.`
+      });
+
+      await logActivity({
+        actorUserId: req.user.id,
+        action: "APPOINTMENT_BOOKED",
+        details: { appointmentId: appt._id.toString(), doctorId, startTime: appt.startTime, slotId }
+      });
+
+      return res.status(201).json({ appointment: appt });
+    }
+
+    const { doctorId, startTime, durationMinutes } = bookLegacySchema.parse(req.body);
     const start = new Date(startTime);
     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
@@ -48,9 +114,9 @@ router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, re
       status: "PENDING"
     });
 
-    const users = await lookupUsers([doctorId, req.user.id]);
-    const doctorEmail = users.get(doctorId)?.email || "doctor";
-    const patientEmail = users.get(req.user.id)?.email || "patient";
+    const refreshedUsers = await lookupUsers([doctorId, req.user.id]);
+    const doctorEmail = refreshedUsers.get(doctorId)?.email || "doctor";
+    const patientEmail = refreshedUsers.get(req.user.id)?.email || "patient";
 
     await notify({
       userId: doctorId,
@@ -60,8 +126,8 @@ router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, re
 
     await notify({
       userId: req.user.id,
-      type: "APPOINTMENT_UPDATE",
-      message: `Appointment requested with ${doctorEmail} for ${toISOString(start)} (PENDING).`
+      type: "SLOT_BOOKED",
+      message: `You booked a slot with ${doctorEmail} for ${toISOString(start)}.`
     });
 
     await logActivity({
@@ -74,7 +140,10 @@ router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, re
   } catch (err) {
     return next(err);
   }
-});
+}
+
+router.post("/appointments", requireAuth, requireRole("PATIENT"), handleBookAppointment);
+router.post("/appointment/book", requireAuth, requireRole("PATIENT"), handleBookAppointment);
 
 router.get("/appointments/me", requireAuth, requireRole("PATIENT"), async (req, res, next) => {
   try {
@@ -141,13 +210,23 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
     appt.status = status;
     await appt.save();
 
+    if (status === "REJECTED" && appt.slotId) {
+      await releaseSlot({ doctorId: appt.doctorId, slotId: appt.slotId, patientId: appt.patientId });
+    }
+
     const users = await lookupUsers([appt.doctorId, appt.patientId]);
     const doctorEmail = users.get(appt.doctorId)?.email || "doctor";
+    const slotAware = Boolean(appt.slotId);
 
     await notify({
       userId: appt.patientId,
-      type: "APPOINTMENT_UPDATE",
-      message: `Appointment with ${doctorEmail} for ${toISOString(appt.startTime)} was ${status}.`
+      type: status === "REJECTED" ? "SLOT_REJECTED" : "APPOINTMENT_UPDATE",
+      message:
+        status === "REJECTED" && slotAware
+          ? `Your slot request with ${doctorEmail} for ${toISOString(appt.startTime)} was rejected. The slot is available again.`
+          : status === "REJECTED"
+            ? `Your appointment request with ${doctorEmail} for ${toISOString(appt.startTime)} was rejected.`
+            : `Appointment with ${doctorEmail} for ${toISOString(appt.startTime)} was ${status}.`
     });
 
     await logActivity({

@@ -9,6 +9,7 @@ import { Label } from "../ui/Input.jsx";
 function statusTone(status) {
   if (status === "ACCEPTED") return "ok";
   if (status === "REJECTED") return "danger";
+  if (status === "CANCELLED") return "danger";
   if (status === "COMPLETED") return "neutral";
   return "warn";
 }
@@ -26,22 +27,6 @@ function startOfWeekMonday(ref) {
   return d;
 }
 
-function nextSlots(days = 7) {
-  const slots = [];
-  const now = new Date();
-  for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + dayOffset);
-    d.setHours(9, 0, 0, 0);
-    for (let i = 0; i < 16; i += 1) {
-      const s = new Date(d.getTime() + i * 30 * 60 * 1000);
-      if (s.getTime() < now.getTime() + 10 * 60 * 1000) continue;
-      slots.push(s);
-    }
-  }
-  return slots;
-}
-
 function scheduleLabel(s) {
   if (s === "MORNING") return "08:30";
   if (s === "NOON") return "12:30";
@@ -53,11 +38,10 @@ export function PatientDashboard() {
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [doctorId, setDoctorId] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState("");
+  const [availability, setAvailability] = useState([]);
+  const [selectedSlotId, setSelectedSlotId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const slots = useMemo(() => nextSlots(), []);
 
   const weekStart = useMemo(() => startOfWeekMonday(new Date()), []);
   const weekDays = useMemo(() => {
@@ -93,15 +77,39 @@ export function PatientDashboard() {
     load();
   }, []);
 
+  async function loadAvailability() {
+    if (!doctorId) {
+      setAvailability([]);
+      setSelectedSlotId("");
+      return;
+    }
+    try {
+      const resp = await api.get(`/doctors/${doctorId}/availability`);
+      setAvailability(resp.data.availability || []);
+      setSelectedSlotId("");
+      setError("");
+    } catch {
+      setAvailability([]);
+    }
+  }
+
+  useEffect(() => {
+    loadAvailability();
+    const t = setInterval(() => {
+      if (doctorId) loadAvailability();
+    }, 5000);
+    return () => clearInterval(t);
+  }, [doctorId]);
+
   async function book() {
     setError("");
     if (!doctorId) return setError("Select a doctor");
-    if (!selectedSlot) return setError("Select a time slot");
+    if (!selectedSlotId) return setError("Select an available slot");
     setBusy(true);
     try {
-      await api.post("/appointments", { doctorId, startTime: new Date(selectedSlot).toISOString(), durationMinutes: 30 });
-      setSelectedSlot("");
-      await load();
+      await api.post("/appointment/book", { doctorId, slotId: selectedSlotId });
+      setSelectedSlotId("");
+      await Promise.all([load(), loadAvailability()]);
     } catch (err) {
       setError(err?.response?.data?.error || "Booking failed");
     } finally {
@@ -172,25 +180,47 @@ export function PatientDashboard() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Time slot (30 minutes)</Label>
-              <select
-                className="h-11 w-full rounded-xl border border-white/70 bg-white/70 px-4 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
-                value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.target.value)}
-              >
-                <option value="">Choose a slot</option>
-                {slots.slice(0, 60).map((s) => (
-                  <option key={s.toISOString()} value={s.toISOString()}>
-                    {s.toLocaleString()}
-                  </option>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Live availability</Label>
+                <span className="text-[11px] text-slate-500">Refreshes every 5s</span>
+              </div>
+              {!doctorId ? <div className="text-sm text-slate-600">Pick a doctor to load their calendar.</div> : null}
+              {doctorId && availability.length === 0 ? (
+                <div className="text-sm text-slate-600">No open slots yet. Ask the doctor to publish availability.</div>
+              ) : null}
+              <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-1">
+                {availability.map((day) => (
+                  <div key={day.date} className="rounded-2xl border border-white/60 bg-white/60 p-3">
+                    <div className="text-xs font-semibold text-slate-700">{day.date}</div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {day.slots.map((slot) => {
+                        const active = selectedSlotId === slot.slotId;
+                        return (
+                          <motion.button
+                            type="button"
+                            layout
+                            key={slot.slotId}
+                            onClick={() => setSelectedSlotId(slot.slotId)}
+                            className={`text-left rounded-xl border px-3 py-2 text-xs transition ${
+                              active ? "border-brand-500 bg-brand-50 shadow-sm" : "border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50"
+                            }`}
+                          >
+                            <div className="font-semibold text-emerald-900">{slot.time}</div>
+                            <div className="text-[11px] text-emerald-800">Available</div>
+                            <div className="text-[10px] text-slate-600 mt-1">{formatWhen(slot.startTime)}</div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </div>
             </div>
             {error ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{error}</div> : null}
             <Button onClick={book} disabled={busy}>
-              {busy ? "Booking..." : "Book appointment"}
+              {busy ? "Booking..." : "Lock slot & request visit"}
             </Button>
-            <div className="text-xs text-slate-500">One patient per slot; overlapping bookings are blocked server-side.</div>
+            <div className="text-xs text-slate-500">Slots are removed from the public list the moment you book; doctors still confirm visits.</div>
           </CardContent>
         </Card>
 

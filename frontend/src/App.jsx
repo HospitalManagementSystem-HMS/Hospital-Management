@@ -6,6 +6,7 @@ import { RegisterPage } from "./pages/RegisterPage.jsx";
 import { PatientDashboard } from "./pages/PatientDashboard.jsx";
 import { DoctorDashboard } from "./pages/DoctorDashboard.jsx";
 import { AdminDashboard } from "./pages/AdminDashboard.jsx";
+import { ProfilePage } from "./pages/ProfilePage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
 import { AppLayout } from "./ui/AppLayout.jsx";
 
@@ -74,6 +75,17 @@ export default function App() {
             <ProtectedRoute role="ADMIN">
               <AppLayout>
                 <AdminDashboard />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <ProfilePage />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -1,11 +1,11 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const { z } = require("zod");
 const env = require("../config/env");
 const { User, USER_ROLES } = require("../models/User");
 const { requireAuth } = require("../middleware/requireAuth");
+const { signUserToken } = require("../utils/token");
 
 const router = express.Router();
 
@@ -35,13 +35,9 @@ router.post("/register", async (req, res, next) => {
       return res.status(502).json({ error: "PROFILE_SYNC_FAILED" });
     }
 
-    const token = jwt.sign(
-      { sub: user._id.toString(), email: user.email, role: user.role },
-      env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signUserToken(user);
 
-    return res.status(201).json({ token, user: { id: user._id, email: user.email, role: user.role } });
+    return res.status(201).json({ token, user: { id: user._id.toString(), email: user.email, role: user.role } });
   } catch (err) {
     return next(err);
   }
@@ -61,13 +57,9 @@ router.post("/login", async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
 
-    const token = jwt.sign(
-      { sub: user._id.toString(), email: user.email, role: user.role },
-      env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = signUserToken(user);
 
-    return res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
+    return res.json({ token, user: { id: user._id.toString(), email: user.email, role: user.role } });
   } catch (err) {
     return next(err);
   }

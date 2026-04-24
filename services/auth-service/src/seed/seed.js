@@ -3,11 +3,11 @@ const bcrypt = require("bcryptjs");
 const env = require("../config/env");
 const { User } = require("../models/User");
 
-async function ensureUser({ email, password, role }) {
+async function ensureUser({ email, password, role, name }) {
   const existing = await User.findOne({ email });
   if (existing) return existing;
   const passwordHash = await bcrypt.hash(password, 12);
-  return User.create({ email, passwordHash, role });
+  return User.create({ email, passwordHash, role, name: name || "", phone: "" });
 }
 
 async function syncDoctorProfile({ authUserId, email, name, specialization }) {
@@ -30,10 +30,15 @@ async function seedOnce() {
   if (!env.SEED) return { done: true };
   if (!env.SEED_ADMIN_EMAIL || !env.SEED_ADMIN_PASSWORD) return { done: true };
 
-  const admin = await ensureUser({ email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD, role: "ADMIN" });
+  const admin = await ensureUser({ email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD, role: "ADMIN", name: "System Admin" });
 
   if (env.SEED_DOCTOR_EMAIL && env.SEED_DOCTOR_PASSWORD) {
-    const doctor = await ensureUser({ email: env.SEED_DOCTOR_EMAIL, password: env.SEED_DOCTOR_PASSWORD, role: "DOCTOR" });
+    const doctor = await ensureUser({
+      email: env.SEED_DOCTOR_EMAIL,
+      password: env.SEED_DOCTOR_PASSWORD,
+      role: "DOCTOR",
+      name: env.SEED_DOCTOR_NAME || "Doctor"
+    });
     if (env.SEED_DOCTOR_NAME && env.SEED_DOCTOR_SPECIALIZATION) {
       await syncDoctorProfile({
         authUserId: doctor._id.toString(),
@@ -45,7 +50,12 @@ async function seedOnce() {
   }
 
   if (env.SEED_PATIENT_EMAIL && env.SEED_PATIENT_PASSWORD) {
-    const patient = await ensureUser({ email: env.SEED_PATIENT_EMAIL, password: env.SEED_PATIENT_PASSWORD, role: "PATIENT" });
+    const patient = await ensureUser({
+      email: env.SEED_PATIENT_EMAIL,
+      password: env.SEED_PATIENT_PASSWORD,
+      role: "PATIENT",
+      name: env.SEED_PATIENT_NAME || "Patient"
+    });
     if (env.SEED_PATIENT_NAME) {
       await syncPatientProfile({
         authUserId: patient._id.toString(),

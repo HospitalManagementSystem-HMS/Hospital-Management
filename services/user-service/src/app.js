@@ -5,6 +5,8 @@ const morgan = require("morgan");
 
 const { publicRoutes } = require("./routes/publicRoutes");
 const { userRoutes } = require("./routes/userRoutes");
+const { profileRoutes } = require("./routes/profileRoutes");
+const { doctorAvailabilityRoutes } = require("./routes/doctorAvailabilityRoutes");
 const { internalRoutes } = require("./routes/internalRoutes");
 const { notFound, errorHandler } = require("./utils/errors");
 
@@ -21,6 +23,8 @@ function createApp() {
 
   app.use(publicRoutes);
   app.use(userRoutes);
+  app.use(profileRoutes);
+  app.use(doctorAvailabilityRoutes);
   app.use("/internal", internalRoutes);
 
   app.use(notFound);

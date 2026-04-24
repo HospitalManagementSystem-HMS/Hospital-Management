@@ -31,7 +31,7 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
     for (const s of body.slots) {
       const { startTime, endTime, time } = parseTimeRangeOnDate(body.date, s.time);
       if (startTime.getTime() < Date.now() || endTime.getTime() <= startTime.getTime()) {
-        return res.status(400).json({ error: "Invalid time range" });
+        return res.status(400).json({ error: "Invalid time range selected" });
       }
       newSlots.push({ time, startTime, endTime, enabled: body.enabled, isBooked: false, bookedByPatientId: null, appointmentId: null });
     }

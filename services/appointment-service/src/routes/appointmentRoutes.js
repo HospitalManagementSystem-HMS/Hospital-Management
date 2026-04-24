@@ -363,6 +363,7 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
     const appt = await Appointment.findById(req.params.id);
     if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
     if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
+    if (appt.status === "COMPLETED") return res.status(409).json({ error: "Consultation already completed for this appointment" });
     if (appt.status !== "ACCEPTED") return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
 
     // Must not complete early

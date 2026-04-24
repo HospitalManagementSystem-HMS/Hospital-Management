@@ -157,7 +157,24 @@ export function AdminDashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label>Specialization</Label>
-                  <Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="Cardiology" required />
+                  <select
+                    className="h-11 w-full rounded-xl border border-white/70 bg-white/70 px-4 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Specialization</option>
+                    <option value="Cardiologist">Cardiologist</option>
+                    <option value="Neurologist">Neurologist</option>
+                    <option value="Orthopedic Surgeon">Orthopedic Surgeon</option>
+                    <option value="Dermatologist">Dermatologist</option>
+                    <option value="Pediatrician">Pediatrician</option>
+                    <option value="General Physician">General Physician</option>
+                    <option value="Psychiatrist">Psychiatrist</option>
+                    <option value="Gynecologist">Gynecologist</option>
+                    <option value="ENT Specialist">ENT Specialist</option>
+                    <option value="Radiologist">Radiologist</option>
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

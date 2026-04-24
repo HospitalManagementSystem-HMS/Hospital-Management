@@ -133,6 +133,13 @@ async function createDoctorHandler(req, res, next) {
       }
     });
   } catch (err) {
+    if (err.name === "ZodError") {
+      const isSpecError = err.issues.some((i) => i.path.includes("specialization"));
+      if (isSpecError) {
+        return res.status(400).json({ error: "Specialization is required and must be valid" });
+      }
+      return res.status(400).json({ error: err.issues[0]?.message || "Invalid payload" });
+    }
     return next(err);
   }
 }

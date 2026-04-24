@@ -18,6 +18,20 @@ function formatWhen(iso) {
   return new Date(iso).toLocaleString();
 }
 
+function bucketForType(type) {
+  if (type.startsWith("APPOINTMENT")) return "care";
+  if (type.includes("PRESCRIPTION")) return "rx";
+  if (type.includes("REMINDER") || type.includes("FOLLOW")) return "rem";
+  return "other";
+}
+
+const GROUP_META = {
+  care: "Care & visits",
+  rx: "Prescriptions",
+  rem: "Reminders",
+  other: "Operations"
+};
+
 export function AppLayout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -25,6 +39,15 @@ export function AppLayout({ children }) {
   const [notifications, setNotifications] = useState([]);
 
   const unread = useMemo(() => notifications.filter((n) => !n.readStatus).length, [notifications]);
+
+  const sections = useMemo(() => {
+    const order = ["care", "rx", "rem", "other"];
+    const map = { care: [], rx: [], rem: [], other: [] };
+    for (const n of notifications) {
+      map[bucketForType(n.type)].push(n);
+    }
+    return order.map((id) => ({ id, label: GROUP_META[id], items: map[id] })).filter((s) => s.items.length > 0);
+  }, [notifications]);
 
   async function loadNotifications() {
     try {
@@ -37,7 +60,7 @@ export function AppLayout({ children }) {
 
   useEffect(() => {
     loadNotifications();
-    const t = setInterval(loadNotifications, 10000);
+    const t = setInterval(loadNotifications, 8000);
     return () => clearInterval(t);
   }, []);
 
@@ -62,15 +85,15 @@ export function AppLayout({ children }) {
               <HeartPulse className="h-5 w-5 text-brand-700" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-900">HMS</div>
-              <div className="text-xs text-slate-500">Hospital Management System</div>
+              <div className="text-sm font-semibold text-slate-900">Helix HMS</div>
+              <div className="text-xs text-slate-500">Neuro-clinical operations cloud</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <Button variant="subtle" onClick={() => setDrawerOpen(true)}>
               <Bell className="h-4 w-4" />
-              Notifications
+              Alerts
               {unread ? (
                 <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs text-white">
                   {unread}
@@ -122,29 +145,35 @@ export function AppLayout({ children }) {
         </div>
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Notifications">
-        <div className="space-y-3">
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Intelligent alerts">
+        <div className="space-y-6">
           {notifications.length === 0 ? <div className="text-sm text-slate-600">No notifications yet.</div> : null}
-          {notifications.map((n) => (
-            <button
-              key={n._id}
-              onClick={() => markRead(n._id)}
-              className={cn(
-                "w-full text-left rounded-2xl border p-4 transition",
-                n.readStatus ? "border-white/60 bg-white/50" : "border-brand-200 bg-brand-50"
-              )}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">{n.type}</div>
-                <Badge tone={n.readStatus ? "neutral" : "info"}>{n.readStatus ? "Read" : "New"}</Badge>
+          {sections.map((section) => (
+            <div key={section.id}>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{section.label}</div>
+              <div className="mt-2 space-y-3">
+                {section.items.map((n) => (
+                  <button
+                    key={n._id}
+                    onClick={() => markRead(n._id)}
+                    className={cn(
+                      "w-full text-left rounded-2xl border p-4 transition",
+                      n.readStatus ? "border-white/60 bg-white/50" : "border-brand-200 bg-brand-50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-900">{n.type.replace(/_/g, " ")}</div>
+                      <Badge tone={n.readStatus ? "neutral" : "info"}>{n.readStatus ? "Read" : "New"}</Badge>
+                    </div>
+                    <div className="mt-1 text-sm text-slate-700">{n.message}</div>
+                    <div className="mt-2 text-xs text-slate-500">{formatWhen(n.createdAt)}</div>
+                  </button>
+                ))}
               </div>
-              <div className="mt-1 text-sm text-slate-700">{n.message}</div>
-              <div className="mt-2 text-xs text-slate-500">{formatWhen(n.createdAt)}</div>
-            </button>
+            </div>
           ))}
         </div>
       </Drawer>
     </div>
   );
 }
-

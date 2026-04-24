@@ -11,17 +11,19 @@ const syncDoctorSchema = z.object({
   authUserId: z.string().min(1),
   email: z.string().email(),
   name: z.string().min(1),
-  specialization: z.string().min(1)
+  specialization: z.string().min(1),
+  experienceYears: z.coerce.number().int().min(0).optional(),
+  availabilitySlots: z.array(z.string()).optional()
 });
 
 router.post("/doctors/sync", async (req, res, next) => {
   try {
-    const { authUserId, email, name, specialization } = syncDoctorSchema.parse(req.body);
-    const doctor = await Doctor.findOneAndUpdate(
-      { authUserId },
-      { authUserId, email, name, specialization },
-      { upsert: true, new: true }
-    );
+    const body = syncDoctorSchema.parse(req.body);
+    const { authUserId, email, name, specialization } = body;
+    const patch = { authUserId, email, name, specialization };
+    if (body.experienceYears !== undefined) patch.experienceYears = body.experienceYears;
+    if (body.availabilitySlots !== undefined) patch.availabilitySlots = body.availabilitySlots;
+    const doctor = await Doctor.findOneAndUpdate({ authUserId }, patch, { upsert: true, new: true });
     res.json({ doctor: { id: doctor.authUserId } });
   } catch (err) {
     next(err);

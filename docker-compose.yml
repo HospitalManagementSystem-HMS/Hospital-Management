@@ -43,6 +43,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
       - AUTH_SERVICE_URL=http://auth-service:4001
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:4003
       - NOTIFICATION_SERVICE_URL=http://notification-service:4004
     depends_on:
       - mongodb
@@ -77,8 +78,8 @@ services:
       - MONGO_DB_NAME=hms_notification
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
-      - MED_REMINDER_INTERVAL_SECONDS=${MED_REMINDER_INTERVAL_SECONDS:-60}
-      - SCHEDULER_TICK_SECONDS=${SCHEDULER_TICK_SECONDS:-10}
+      - MED_REMINDER_TZ=${MED_REMINDER_TZ:-UTC}
+      - FOLLOW_UP_POLL_SECONDS=${FOLLOW_UP_POLL_SECONDS:-60}
     depends_on:
       - mongodb
 

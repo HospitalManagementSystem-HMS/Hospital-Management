@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { api } from "../lib/api.js";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card.jsx";
 import { Button } from "../ui/Button.jsx";
@@ -17,13 +18,37 @@ function formatWhen(iso) {
   return new Date(iso).toLocaleString();
 }
 
+function startOfWeekMonday(ref) {
+  const d = new Date(ref);
+  const day = d.getDay();
+  const diffFromMonday = (day + 6) % 7;
+  d.setDate(d.getDate() - diffFromMonday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function emptyMedicineRow() {
+  return { name: "", instructions: "", morning: true, noon: false, night: false };
+}
+
+function rowToMedicine(row) {
+  const schedule = [];
+  if (row.morning) schedule.push("MORNING");
+  if (row.noon) schedule.push("NOON");
+  if (row.night) schedule.push("NIGHT");
+  return { name: row.name.trim(), instructions: row.instructions.trim(), schedule };
+}
+
 export function DoctorDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [busyId, setBusyId] = useState("");
-  const [consultOpen, setConsultOpen] = useState(false);
-  const [consultAppt, setConsultAppt] = useState(null);
-  const [medicines, setMedicines] = useState([{ name: "", instructions: "" }]);
-  const [notes, setNotes] = useState("");
+  const [rxOpen, setRxOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [targetAppt, setTargetAppt] = useState(null);
+  const [medicines, setMedicines] = useState([emptyMedicineRow()]);
+  const [consultationNotes, setConsultationNotes] = useState("");
+  const [prescriptionNotes, setPrescriptionNotes] = useState("");
   const [followUpRecommended, setFollowUpRecommended] = useState(false);
   const [followUpDate, setFollowUpDate] = useState("");
   const [error, setError] = useState("");
@@ -31,6 +56,30 @@ export function DoctorDashboard() {
   const pending = useMemo(() => appointments.filter((a) => a.status === "PENDING"), [appointments]);
   const active = useMemo(() => appointments.filter((a) => a.status === "ACCEPTED"), [appointments]);
   const completed = useMemo(() => appointments.filter((a) => a.status === "COMPLETED"), [appointments]);
+
+  const weekStart = useMemo(() => startOfWeekMonday(new Date()), []);
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
+
+  const calendarMap = useMemo(() => {
+    const map = new Map();
+    for (const d of weekDays) {
+      map.set(d.toDateString(), []);
+    }
+    for (const a of appointments) {
+      const dt = new Date(a.startTime);
+      const key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toDateString();
+      if (!map.has(key)) continue;
+      map.get(key).push(a);
+    }
+    for (const list of map.values()) list.sort((x, y) => new Date(x.startTime) - new Date(y.startTime));
+    return map;
+  }, [appointments, weekDays]);
 
   async function load() {
     const resp = await api.get("/doctor/appointments");
@@ -51,32 +100,78 @@ export function DoctorDashboard() {
     }
   }
 
-  function openConsult(a) {
+  function openRx(a) {
     setError("");
-    setConsultAppt(a);
-    setMedicines([{ name: "", instructions: "" }]);
-    setNotes("");
-    setFollowUpRecommended(false);
-    setFollowUpDate("");
-    setConsultOpen(true);
+    setTargetAppt(a);
+    setMedicines([emptyMedicineRow()]);
+    setPrescriptionNotes(a.prescription?.notes || "");
+    setRxOpen(true);
   }
 
-  async function submitConsultation() {
-    if (!consultAppt) return;
+  function openNotes(a) {
     setError("");
-    const cleaned = medicines.filter((m) => m.name.trim() && m.instructions.trim());
-    if (cleaned.length === 0) return setError("Add at least one medicine");
+    setTargetAppt(a);
+    setConsultationNotes(a.consultationNotes || "");
+    setNotesOpen(true);
+  }
+
+  function openComplete(a) {
+    setError("");
+    setTargetAppt(a);
+    setMedicines([emptyMedicineRow()]);
+    setConsultationNotes(a.consultationNotes || "");
+    setPrescriptionNotes(a.prescription?.notes || "");
+    setFollowUpRecommended(false);
+    setFollowUpDate("");
+    setCompleteOpen(true);
+  }
+
+  async function savePrescription() {
+    if (!targetAppt) return;
+    setError("");
+    const cleanedRows = medicines.map(rowToMedicine).filter((m) => m.name && m.instructions && m.schedule.length > 0);
+    if (cleanedRows.length === 0) return setError("Add at least one medicine with a schedule (Morning / Noon / Night).");
     try {
-      await api.post(`/appointments/${consultAppt._id}/consultation`, {
-        medicines: cleaned,
-        notes,
-        followUpRecommended,
-        followUpDate: followUpRecommended && followUpDate ? new Date(followUpDate).toISOString() : undefined
+      await api.post(`/appointments/${targetAppt._id}/prescription`, {
+        medicines: cleanedRows,
+        notes: prescriptionNotes
       });
-      setConsultOpen(false);
+      setRxOpen(false);
       await load();
     } catch (err) {
-      setError(err?.response?.data?.error || "Failed to save consultation");
+      setError(err?.response?.data?.error || "Failed to save prescription");
+    }
+  }
+
+  async function saveNotes() {
+    if (!targetAppt) return;
+    setError("");
+    try {
+      await api.patch(`/appointments/${targetAppt._id}/consultation-notes`, { consultationNotes });
+      setNotesOpen(false);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.error || "Failed to save notes");
+    }
+  }
+
+  async function submitCompletion() {
+    if (!targetAppt) return;
+    setError("");
+    const cleanedRows = medicines.map(rowToMedicine).filter((m) => m.name && m.instructions && m.schedule.length > 0);
+    const payload = {
+      consultationNotes,
+      prescriptionNotes,
+      followUpRecommended,
+      followUpDate: followUpRecommended && followUpDate ? new Date(followUpDate).toISOString() : undefined
+    };
+    if (cleanedRows.length > 0) payload.medicines = cleanedRows;
+    try {
+      await api.post(`/appointments/${targetAppt._id}/consultation`, payload);
+      setCompleteOpen(false);
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.error || "Failed to complete consultation");
     }
   }
 
@@ -84,107 +179,154 @@ export function DoctorDashboard() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <div className="text-xl font-semibold text-slate-900">Doctor Dashboard</div>
-          <div className="mt-1 text-sm text-slate-600">Review requests, manage schedule, add consultations.</div>
+          <div className="text-2xl font-semibold tracking-tight text-slate-900">Clinical cockpit</div>
+          <div className="mt-1 text-sm text-slate-600">Triage requests, orchestrate visits, digitize therapeutics with structured dosing windows.</div>
         </div>
         <Button variant="subtle" onClick={load}>
           Refresh
         </Button>
       </div>
 
+      <Card className="border-white/70 bg-white/55 backdrop-blur-xl overflow-hidden">
+        <CardHeader>
+          <CardTitle>Week orbit ({formatWhen(weekStart)} →)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
+            {weekDays.map((d) => {
+              const key = d.toDateString();
+              const items = calendarMap.get(key) || [];
+              return (
+                <div key={key} className="rounded-2xl border border-white/60 bg-gradient-to-b from-white/70 to-sky-50/30 p-3 min-h-[140px]">
+                  <div className="text-xs font-semibold text-slate-700">{d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
+                  <div className="mt-2 space-y-2">
+                    {items.length === 0 ? <div className="text-[11px] text-slate-500">Open</div> : null}
+                    {items.map((a) => (
+                      <div key={a._id} className="rounded-xl bg-white/80 border border-white/70 p-2 text-[11px]">
+                        <div className="font-semibold text-slate-900">{new Date(a.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                        <div className="text-slate-600 truncate">{a.patientEmail || a.patientId}</div>
+                        <Badge tone={tone(a.status)}>{a.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pending.length === 0 ? <div className="text-sm text-slate-600">No pending requests.</div> : null}
-            {pending.map((a) => (
-              <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
-                  <Badge tone={tone(a.status)}>{a.status}</Badge>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pending.length === 0 ? <div className="text-sm text-slate-600">No pending requests.</div> : null}
+              {pending.map((a) => (
+                <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
+                    <Badge tone={tone(a.status)}>{a.status}</Badge>
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" onClick={() => decide(a._id, "ACCEPTED")} disabled={busyId === a._id}>
+                      Accept
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => decide(a._id, "REJECTED")} disabled={busyId === a._id}>
+                      Reject
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={() => decide(a._id, "ACCEPTED")} disabled={busyId === a._id}>
-                    Accept
-                  </Button>
-                  <Button size="sm" variant="danger" onClick={() => decide(a._id, "REJECTED")} disabled={busyId === a._id}>
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Accepted</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {active.length === 0 ? <div className="text-sm text-slate-600">No accepted appointments.</div> : null}
-            {active.map((a) => (
-              <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
-                  <Badge tone={tone(a.status)}>{a.status}</Badge>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Accepted</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {active.length === 0 ? <div className="text-sm text-slate-600">No accepted appointments.</div> : null}
+              {active.map((a) => (
+                <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
+                    <Badge tone={tone(a.status)}>{a.status}</Badge>
+                  </div>
+                  <div className="text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+                  {a.consultationNotes ? <div className="text-xs text-slate-600">Notes on file</div> : null}
+                  {a.prescription?.medicines?.length ? <div className="text-xs text-emerald-700">Prescription staged</div> : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="subtle" onClick={() => openNotes(a)}>
+                      Visit notes
+                    </Button>
+                    <Button size="sm" variant="subtle" onClick={() => openRx(a)}>
+                      Prescription
+                    </Button>
+                    <Button size="sm" onClick={() => openComplete(a)}>
+                      Complete visit
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
-                <div className="mt-3">
-                  <Button size="sm" onClick={() => openConsult(a)}>
-                    Add consultation & complete
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Completed</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {completed.length === 0 ? <div className="text-sm text-slate-600">No completed appointments.</div> : null}
-            {completed.map((a) => (
-              <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
-                  <Badge tone={tone(a.status)}>{a.status}</Badge>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {completed.length === 0 ? <div className="text-sm text-slate-600">No completed appointments.</div> : null}
+              {completed.map((a) => (
+                <div key={a._id} className="rounded-2xl border border-white/60 bg-white/50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900">{a.patientEmail || a.patientId}</div>
+                    <Badge tone={tone(a.status)}>{a.status}</Badge>
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
                 </div>
-                <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       <Modal
-        open={consultOpen}
-        title="Consultation Notes"
-        onClose={() => setConsultOpen(false)}
+        open={rxOpen}
+        title="Structured prescription"
+        onClose={() => setRxOpen(false)}
         footer={
           <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConsultOpen(false)}>
+            <Button variant="ghost" onClick={() => setRxOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submitConsultation}>Save & complete</Button>
+            <Button onClick={savePrescription}>Save prescription</Button>
           </div>
         }
       >
-        <div className="space-y-4">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">{consultAppt?.patientEmail || consultAppt?.patientId}</div>
-            <div className="text-xs text-slate-600">{consultAppt ? formatWhen(consultAppt.startTime) : ""}</div>
-          </div>
-
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="text-xs text-slate-600">Map each medicine to Morning (08:30), Noon (12:30), Night (19:30). Stored as JSON schedules for automated reminders.</div>
           <div className="space-y-2">
-            <div className="text-sm font-semibold text-slate-900">Prescription</div>
-            <div className="space-y-3">
-              {medicines.map((m, idx) => (
-                <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <Label>Prescription notes</Label>
+            <textarea
+              className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+              rows={2}
+              value={prescriptionNotes}
+              onChange={(e) => setPrescriptionNotes(e.target.value)}
+            />
+          </div>
+          <div className="space-y-3">
+            {medicines.map((m, idx) => (
+              <div key={idx} className="rounded-2xl border border-white/60 bg-white/60 p-3 space-y-3">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <Input
                     value={m.name}
                     onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
@@ -193,34 +335,136 @@ export function DoctorDashboard() {
                   <Input
                     value={m.instructions}
                     onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, instructions: e.target.value } : x)))}
-                    placeholder="Instructions (e.g., 1-0-1 after food)"
+                    placeholder="Instructions"
                   />
                 </div>
-              ))}
-              <div className="flex gap-2">
-                <Button size="sm" variant="subtle" onClick={() => setMedicines((prev) => [...prev, { name: "", instructions: "" }])}>
-                  Add medicine
-                </Button>
-                {medicines.length > 1 ? (
-                  <Button size="sm" variant="ghost" onClick={() => setMedicines((prev) => prev.slice(0, -1))}>
-                    Remove last
-                  </Button>
-                ) : null}
+                <div className="flex flex-wrap gap-4 text-sm text-slate-800">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.morning} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, morning: e.target.checked } : x)))} />
+                    Morning
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.noon} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, noon: e.target.checked } : x)))} />
+                    Noon
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.night} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, night: e.target.checked } : x)))} />
+                    Night
+                  </label>
+                </div>
               </div>
+            ))}
+            <div className="flex gap-2">
+              <Button size="sm" variant="subtle" onClick={() => setMedicines((prev) => [...prev, emptyMedicineRow()])}>
+                Add medicine
+              </Button>
+              {medicines.length > 1 ? (
+                <Button size="sm" variant="ghost" onClick={() => setMedicines((prev) => prev.slice(0, -1))}>
+                  Remove last
+                </Button>
+              ) : null}
             </div>
           </div>
+          {error ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{error}</div> : null}
+        </div>
+      </Modal>
 
+      <Modal
+        open={notesOpen}
+        title="Consultation notes"
+        onClose={() => setNotesOpen(false)}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setNotesOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveNotes}>Save notes</Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <textarea
+            className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+            rows={5}
+            value={consultationNotes}
+            onChange={(e) => setConsultationNotes(e.target.value)}
+            placeholder="Clinical narrative, vitals, differential, plan..."
+          />
+          {error ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{error}</div> : null}
+        </div>
+      </Modal>
+
+      <Modal
+        open={completeOpen}
+        title="Complete consultation"
+        onClose={() => setCompleteOpen(false)}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCompleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitCompletion}>Mark completed</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="text-xs text-slate-600">You may attach medicines here or rely on a prescription saved earlier. At least notes or a prescription must exist.</div>
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>Consultation notes</Label>
             <textarea
               className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
               rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Consultation notes"
+              value={consultationNotes}
+              onChange={(e) => setConsultationNotes(e.target.value)}
             />
           </div>
-
+          <div className="space-y-2">
+            <Label>Prescription notes</Label>
+            <textarea
+              className="w-full rounded-xl border border-white/70 bg-white/70 p-3 text-sm text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-brand-400/40"
+              rows={2}
+              value={prescriptionNotes}
+              onChange={(e) => setPrescriptionNotes(e.target.value)}
+            />
+          </div>
+          <div className="space-y-3">
+            <div className="text-sm font-semibold text-slate-900">Optional medicines (overrides staged prescription)</div>
+            {medicines.map((m, idx) => (
+              <div key={idx} className="rounded-2xl border border-white/60 bg-white/60 p-3 space-y-3">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <Input
+                    value={m.name}
+                    onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
+                    placeholder="Medicine name"
+                  />
+                  <Input
+                    value={m.instructions}
+                    onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, instructions: e.target.value } : x)))}
+                    placeholder="Instructions"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-slate-800">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.morning} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, morning: e.target.checked } : x)))} />
+                    Morning
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.noon} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, noon: e.target.checked } : x)))} />
+                    Noon
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={m.night} onChange={(e) => setMedicines((prev) => prev.map((x, i) => (i === idx ? { ...x, night: e.target.checked } : x)))} />
+                    Night
+                  </label>
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button size="sm" variant="subtle" onClick={() => setMedicines((prev) => [...prev, emptyMedicineRow()])}>
+                Add medicine
+              </Button>
+            </div>
+          </div>
           <div className="rounded-2xl border border-white/60 bg-white/50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-900">Follow-up</div>
@@ -236,11 +480,9 @@ export function DoctorDashboard() {
               </div>
             ) : null}
           </div>
-
           {error ? <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{error}</div> : null}
         </div>
       </Modal>
     </div>
   );
 }
-

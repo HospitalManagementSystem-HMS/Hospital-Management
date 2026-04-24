@@ -1,6 +1,5 @@
 const express = require("express");
 const { z } = require("zod");
-const env = require("../config/env");
 const { requireInternal } = require("../middleware/internalAuth");
 const { Notification } = require("../models/Notification");
 const { ReminderJob } = require("../models/ReminderJob");
@@ -26,6 +25,8 @@ router.post("/notify", async (req, res, next) => {
   }
 });
 
+const scheduleEnum = z.enum(["MORNING", "NOON", "NIGHT"]);
+
 const medicinesSchema = z.object({
   userId: z.string().min(1),
   appointmentId: z.string().min(1),
@@ -33,7 +34,8 @@ const medicinesSchema = z.object({
     .array(
       z.object({
         name: z.string().min(1),
-        instructions: z.string().min(1)
+        instructions: z.string().min(1),
+        schedule: z.array(scheduleEnum).default([])
       })
     )
     .min(1)
@@ -42,12 +44,19 @@ const medicinesSchema = z.object({
 router.post("/reminders/medicine", async (req, res, next) => {
   try {
     const { userId, appointmentId, medicines } = medicinesSchema.parse(req.body);
-    const intervalSeconds = env.MED_REMINDER_INTERVAL_SECONDS;
-    const nextRunAt = new Date(Date.now() + intervalSeconds * 1000);
 
     const job = await ReminderJob.findOneAndUpdate(
       { userId, appointmentId, kind: "MEDICINE" },
-      { userId, appointmentId, kind: "MEDICINE", medicines, intervalSeconds, nextRunAt, active: true },
+      {
+        userId,
+        appointmentId,
+        kind: "MEDICINE",
+        medicines,
+        active: true,
+        morningNotifiedDate: null,
+        noonNotifiedDate: null,
+        nightNotifiedDate: null
+      },
       { upsert: true, new: true }
     );
     res.json({ job });
@@ -93,4 +102,3 @@ router.post("/activity", async (req, res, next) => {
 });
 
 module.exports = { internalRoutes: router };
-

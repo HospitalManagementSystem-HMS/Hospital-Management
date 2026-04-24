@@ -11,6 +11,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16),
   INTERNAL_API_KEY: z.string().min(8),
   AUTH_SERVICE_URL: z.string().url(),
+  APPOINTMENT_SERVICE_URL: z.string().url(),
   NOTIFICATION_SERVICE_URL: z.string().url()
 });
 

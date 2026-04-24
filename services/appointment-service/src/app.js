@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 
 const { appointmentRoutes } = require("./routes/appointmentRoutes");
+const { internalRoutes } = require("./routes/internalRoutes");
 const { notFound, errorHandler } = require("./utils/errors");
 
 function createApp() {
@@ -18,6 +19,7 @@ function createApp() {
   app.get("/health", (_req, res) => res.json({ ok: true, service: "appointment" }));
 
   app.use(appointmentRoutes);
+  app.use("/internal", internalRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

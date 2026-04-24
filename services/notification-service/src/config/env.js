@@ -10,8 +10,8 @@ const envSchema = z.object({
   MONGO_DB_NAME: z.string().min(1).default("hms_notification"),
   JWT_SECRET: z.string().min(16),
   INTERNAL_API_KEY: z.string().min(8),
-  MED_REMINDER_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
-  SCHEDULER_TICK_SECONDS: z.coerce.number().int().positive().default(10)
+  MED_REMINDER_TZ: z.string().min(1).default("UTC"),
+  FOLLOW_UP_POLL_SECONDS: z.coerce.number().int().positive().default(60)
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -22,4 +22,3 @@ if (!parsed.success) {
 }
 
 module.exports = parsed.data;
-

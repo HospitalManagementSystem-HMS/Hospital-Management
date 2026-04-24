@@ -11,6 +11,14 @@ function toISOString(date) {
   return new Date(date).toISOString();
 }
 
+const scheduleEnum = z.enum(["MORNING", "NOON", "NIGHT"]);
+
+const medicineInputSchema = z.object({
+  name: z.string().min(1),
+  instructions: z.string().min(1),
+  schedule: z.array(scheduleEnum).min(1)
+});
+
 const bookSchema = z.object({
   doctorId: z.string().min(1),
   startTime: z.string().datetime(),
@@ -25,7 +33,7 @@ router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, re
 
     const overlap = await Appointment.findOne({
       doctorId,
-      status: { $ne: "REJECTED" },
+      status: { $in: ["PENDING", "ACCEPTED"] },
       startTime: { $lt: end },
       endTime: { $gt: start }
     });
@@ -46,13 +54,13 @@ router.post("/appointments", requireAuth, requireRole("PATIENT"), async (req, re
 
     await notify({
       userId: doctorId,
-      type: "APPOINTMENT_BOOKED",
+      type: "APPOINTMENT_UPDATE",
       message: `New appointment request from ${patientEmail} for ${toISOString(start)}.`
     });
 
     await notify({
       userId: req.user.id,
-      type: "APPOINTMENT_STATUS",
+      type: "APPOINTMENT_UPDATE",
       message: `Appointment requested with ${doctorEmail} for ${toISOString(start)} (PENDING).`
     });
 
@@ -138,7 +146,7 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
 
     await notify({
       userId: appt.patientId,
-      type: "APPOINTMENT_STATUS",
+      type: "APPOINTMENT_UPDATE",
       message: `Appointment with ${doctorEmail} for ${toISOString(appt.startTime)} was ${status}.`
     });
 
@@ -154,30 +162,110 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
   }
 });
 
+const prescriptionBodySchema = z.object({
+  medicines: z.array(medicineInputSchema).min(1),
+  notes: z.string().optional().default("")
+});
+
+router.post("/appointments/:id/prescription", requireAuth, requireRole("DOCTOR"), async (req, res, next) => {
+  try {
+    const { medicines, notes } = prescriptionBodySchema.parse(req.body);
+    const appt = await Appointment.findById(req.params.id);
+    if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
+    if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
+    if (appt.status !== "ACCEPTED") return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
+
+    appt.prescription = { medicines, notes: notes || "" };
+    await appt.save();
+
+    const users = await lookupUsers([appt.doctorId, appt.patientId]);
+    const doctorEmail = users.get(appt.doctorId)?.email || "doctor";
+
+    await notify({
+      userId: appt.patientId,
+      type: "PRESCRIPTION_ADDED",
+      message: `A prescription was added/updated for your appointment with ${doctorEmail} on ${toISOString(appt.startTime)}.`
+    });
+
+    await upsertMedicineReminder({ userId: appt.patientId, appointmentId: appt._id.toString(), medicines: appt.prescription.medicines });
+
+    await logActivity({
+      actorUserId: req.user.id,
+      action: "PRESCRIPTION_UPSERTED",
+      details: { appointmentId: appt._id.toString() }
+    });
+
+    return res.json({ appointment: appt });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const notesSchema = z.object({
+  consultationNotes: z.string().optional().default("")
+});
+
+router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("DOCTOR"), async (req, res, next) => {
+  try {
+    const { consultationNotes } = notesSchema.parse(req.body);
+    const appt = await Appointment.findById(req.params.id);
+    if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
+    if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
+    if (!["PENDING", "ACCEPTED"].includes(appt.status)) return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
+
+    appt.consultationNotes = consultationNotes;
+    await appt.save();
+
+    await logActivity({
+      actorUserId: req.user.id,
+      action: "CONSULTATION_NOTES_UPDATED",
+      details: { appointmentId: appt._id.toString() }
+    });
+
+    return res.json({ appointment: appt });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 const consultationSchema = z.object({
-  medicines: z
-    .array(
-      z.object({
-        name: z.string().min(1),
-        instructions: z.string().min(1)
-      })
-    )
-    .min(1),
-  notes: z.string().optional().default(""),
+  medicines: z.array(medicineInputSchema).optional(),
+  consultationNotes: z.string().optional().default(""),
+  notes: z.string().optional(),
+  prescriptionNotes: z.string().optional(),
   followUpRecommended: z.boolean().optional().default(false),
   followUpDate: z.string().datetime().optional()
 });
 
 router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR"), async (req, res, next) => {
   try {
-    const { medicines, notes, followUpRecommended, followUpDate } = consultationSchema.parse(req.body);
+    const parsed = consultationSchema.parse(req.body);
+    const { medicines, followUpRecommended, followUpDate } = parsed;
+    const consultationNotes = parsed.consultationNotes || parsed.notes || "";
+    const prescriptionNotes = parsed.prescriptionNotes;
+
     const appt = await Appointment.findById(req.params.id);
     if (!appt) return res.status(404).json({ error: "NOT_FOUND" });
     if (appt.doctorId !== req.user.id) return res.status(403).json({ error: "FORBIDDEN" });
     if (appt.status !== "ACCEPTED") return res.status(409).json({ error: "INVALID_STATUS_TRANSITION" });
 
+    if (consultationNotes) appt.consultationNotes = consultationNotes;
+
+    if (medicines && medicines.length > 0) {
+      appt.prescription = {
+        medicines,
+        notes: prescriptionNotes !== undefined ? prescriptionNotes : appt.prescription?.notes || ""
+      };
+    } else if (prescriptionNotes !== undefined && appt.prescription) {
+      appt.prescription.notes = prescriptionNotes;
+    }
+
+    const hasRx = appt.prescription && Array.isArray(appt.prescription.medicines) && appt.prescription.medicines.length > 0;
+    if (!consultationNotes.trim() && !hasRx) {
+      return res.status(400).json({ error: "CONSULTATION_REQUIRES_NOTES_OR_PRESCRIPTION" });
+    }
+
     appt.status = "COMPLETED";
-    appt.prescription = { medicines, notes };
     if (followUpRecommended && followUpDate) {
       appt.followUpDate = new Date(followUpDate);
     } else {
@@ -188,19 +276,30 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
     const users = await lookupUsers([appt.doctorId, appt.patientId]);
     const doctorEmail = users.get(appt.doctorId)?.email || "doctor";
 
+    if (hasRx) {
+      await notify({
+        userId: appt.patientId,
+        type: "PRESCRIPTION_ADDED",
+        message: `Consultation completed with ${doctorEmail}. Your prescription is available.`
+      });
+      await upsertMedicineReminder({
+        userId: appt.patientId,
+        appointmentId: appt._id.toString(),
+        medicines: appt.prescription.medicines
+      });
+    }
+
     await notify({
       userId: appt.patientId,
-      type: "PRESCRIPTION_ADDED",
-      message: `Prescription added for your appointment with ${doctorEmail} on ${toISOString(appt.startTime)}.`
+      type: "APPOINTMENT_UPDATE",
+      message: `Your appointment with ${doctorEmail} on ${toISOString(appt.startTime)} was marked COMPLETED.`
     });
-
-    await upsertMedicineReminder({ userId: appt.patientId, appointmentId: appt._id.toString(), medicines });
 
     if (appt.followUpDate) {
       await upsertFollowUpReminder({ userId: appt.patientId, appointmentId: appt._id.toString(), dueAt: appt.followUpDate.toISOString() });
       await notify({
         userId: appt.patientId,
-        type: "FOLLOW_UP",
+        type: "FOLLOW_UP_REMINDER",
         message: `Follow-up recommended on ${toISOString(appt.followUpDate)}.`
       });
     }
@@ -230,4 +329,3 @@ router.get("/appointments/:id", requireAuth, async (req, res, next) => {
 });
 
 module.exports = { appointmentRoutes: router };
-

@@ -61,6 +61,9 @@ export function DoctorDashboard() {
   const [avBusy, setAvBusy] = useState(false);
   const [avError, setAvError] = useState("");
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [showWeek, setShowWeek] = useState(false);
+  const todayYmd = useMemo(() => new Date(nowTick).toISOString().slice(0, 10), [nowTick]);
+  const minTimeToday = useMemo(() => new Date(nowTick).toTimeString().slice(0, 5), [nowTick]);
 
   const timeOptions = useMemo(() => {
     const opts = [];
@@ -99,9 +102,7 @@ export function DoctorDashboard() {
 
   function isPastTime(hhmm) {
     if (!avDate || !hhmm) return false;
-    const [h, m] = hhmm.split(":").map((x) => Number(x));
-    const dt = new Date(`${avDate}T00:00:00.000Z`);
-    dt.setUTCHours(h, m, 0, 0);
+    const dt = new Date(`${avDate}T${hhmm}:00`);
     return dt.getTime() < nowTick;
   }
 
@@ -291,15 +292,20 @@ export function DoctorDashboard() {
           <div className="text-2xl font-semibold tracking-tight text-slate-900">Clinical cockpit</div>
           <div className="mt-1 text-sm text-slate-600">Triage requests, orchestrate visits, digitize therapeutics with structured dosing windows.</div>
         </div>
-        <Button
-          variant="subtle"
-          onClick={() => {
-            load();
-            loadMyAvailability();
-          }}
-        >
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="subtle" onClick={() => setShowWeek((v) => !v)}>
+            {showWeek ? "Hide week" : "View week"}
+          </Button>
+          <Button
+            variant="subtle"
+            onClick={() => {
+              load();
+              loadMyAvailability();
+            }}
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Card className="border-white/70 bg-white/55 backdrop-blur-xl">
@@ -310,12 +316,13 @@ export function DoctorDashboard() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" value={avDate} onChange={(e) => setAvDate(e.target.value)} />
+              <Input type="date" min={todayYmd} value={avDate} onChange={(e) => setAvDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Start time</Label>
               <Input
                 type="time"
+                min={isToday ? minTimeToday : undefined}
                 value={avStart}
                 onChange={(e) => setAvStart(e.target.value)}
               />
@@ -324,6 +331,7 @@ export function DoctorDashboard() {
               <Label>End time</Label>
               <Input
                 type="time"
+                min={avStart || (isToday ? minTimeToday : undefined)}
                 value={avEnd}
                 onChange={(e) => setAvEnd(e.target.value)}
               />
@@ -372,9 +380,10 @@ export function DoctorDashboard() {
         </CardContent>
       </Card>
 
+      {showWeek ? (
       <Card className="border-white/70 bg-white/55 backdrop-blur-xl overflow-hidden">
         <CardHeader>
-          <CardTitle>Week orbit ({formatWhen(weekStart)} →)</CardTitle>
+          <CardTitle>Week orbit (from {weekStart.toLocaleDateString()})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
@@ -400,6 +409,7 @@ export function DoctorDashboard() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

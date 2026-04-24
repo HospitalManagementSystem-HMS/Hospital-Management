@@ -5,18 +5,12 @@ function parseTimeRangeOnDate(dateStr, rangeStr) {
   const parts = rangeStr.split("-").map((s) => s.trim());
   if (parts.length !== 2) throw new Error("INVALID_TIME_RANGE");
   const [startPart, endPart] = parts;
-  const parseHm = (hm) => {
-    const [h, m] = hm.split(":").map((x) => Number(String(x).trim()));
-    if (!Number.isFinite(h) || !Number.isFinite(m)) throw new Error("INVALID_TIME");
-    return { h, m };
-  };
-  const sh = parseHm(startPart);
-  const eh = parseHm(endPart);
-  const base = new Date(`${dateStr}T00:00:00.000Z`);
-  const startTime = new Date(base);
-  startTime.setUTCHours(sh.h, sh.m, 0, 0);
-  const endTime = new Date(base);
-  endTime.setUTCHours(eh.h, eh.m, 0, 0);
+
+  // Interpret inputs as "hospital local time" (container/server local time).
+  // Store as Date (UTC instant) so browsers can render in local time correctly.
+  const startTime = new Date(`${dateStr}T${startPart}:00`);
+  const endTime = new Date(`${dateStr}T${endPart}:00`);
+  if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) throw new Error("INVALID_TIME");
   if (endTime.getTime() <= startTime.getTime()) throw new Error("INVALID_RANGE_ORDER");
   return { startTime, endTime, time: rangeStr };
 }

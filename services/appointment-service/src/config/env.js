@@ -12,7 +12,8 @@ const envSchema = z.object({
   INTERNAL_API_KEY: z.string().min(8),
   AUTH_SERVICE_URL: z.string().url(),
   USER_SERVICE_URL: z.string().url(),
-  NOTIFICATION_SERVICE_URL: z.string().url()
+  NOTIFICATION_SERVICE_URL: z.string().url(),
+  API_GATEWAY_URL: z.string().url().optional().default("http://api-gateway:8080")
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -23,4 +24,3 @@ if (!parsed.success) {
 }
 
 module.exports = parsed.data;
-

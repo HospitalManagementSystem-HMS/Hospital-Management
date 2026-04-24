@@ -16,4 +16,3 @@ Seeded accounts (change via `.env` / compose env vars):
 - Patient: `patient@hospital.local` / `Patient@12345`
 
 API documentation: `docs/api.md`
-

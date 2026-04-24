@@ -14,6 +14,7 @@ services:
     restart: unless-stopped
     environment:
       - PORT=4001
+      - TZ=${TZ:-Asia/Kolkata}
       - MONGO_URI=mongodb://mongodb:27017
       - MONGO_DB_NAME=hms_auth
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
@@ -25,7 +26,7 @@ services:
       - SEED_DOCTOR_EMAIL=${SEED_DOCTOR_EMAIL:-doctor@hospital.local}
       - SEED_DOCTOR_PASSWORD=${SEED_DOCTOR_PASSWORD:-Doctor@12345}
       - SEED_DOCTOR_NAME=${SEED_DOCTOR_NAME:-Dr. Aisha Sharma}
-      - SEED_DOCTOR_SPECIALIZATION=${SEED_DOCTOR_SPECIALIZATION:-General Medicine}
+      - SEED_DOCTOR_SPECIALIZATION=${SEED_DOCTOR_SPECIALIZATION:-General Physician}
       - SEED_PATIENT_EMAIL=${SEED_PATIENT_EMAIL:-patient@hospital.local}
       - SEED_PATIENT_PASSWORD=${SEED_PATIENT_PASSWORD:-Patient@12345}
       - SEED_PATIENT_NAME=${SEED_PATIENT_NAME:-Rahul Verma}
@@ -38,6 +39,7 @@ services:
     restart: unless-stopped
     environment:
       - PORT=4002
+      - TZ=${TZ:-Asia/Kolkata}
       - MONGO_URI=mongodb://mongodb:27017
       - MONGO_DB_NAME=hms_user
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
@@ -56,6 +58,7 @@ services:
     restart: unless-stopped
     environment:
       - PORT=4003
+      - TZ=${TZ:-Asia/Kolkata}
       - MONGO_URI=mongodb://mongodb:27017
       - MONGO_DB_NAME=hms_appointment
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
@@ -74,6 +77,7 @@ services:
     restart: unless-stopped
     environment:
       - PORT=4004
+      - TZ=${TZ:-Asia/Kolkata}
       - MONGO_URI=mongodb://mongodb:27017
       - MONGO_DB_NAME=hms_notification
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
@@ -89,7 +93,9 @@ services:
     restart: unless-stopped
     environment:
       - PORT=8080
+      - TZ=${TZ:-Asia/Kolkata}
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
       - AUTH_SERVICE_URL=http://auth-service:4001
       - USER_SERVICE_URL=http://user-service:4002
       - APPOINTMENT_SERVICE_URL=http://appointment-service:4003

@@ -44,6 +44,15 @@ export function PatientDashboard() {
   const [problemDescription, setProblemDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showWeek, setShowWeek] = useState(false);
+
+  const nextAppointments = useMemo(() => {
+    const now = Date.now();
+    return [...appointments]
+      .filter((a) => new Date(a.startTime).getTime() >= now)
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+      .slice(0, 3);
+  }, [appointments]);
 
   const weekStart = useMemo(() => startOfWeekMonday(new Date()), []);
   const weekDays = useMemo(() => {
@@ -135,39 +144,64 @@ export function PatientDashboard() {
           <div className="text-2xl font-semibold tracking-tight text-slate-900">Care journey</div>
           <div className="mt-1 text-sm text-slate-600">Reserve slots, monitor triage, and sync with therapeutic schedules.</div>
         </div>
-        <Button variant="subtle" onClick={load}>
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="subtle" onClick={() => setShowWeek((v) => !v)}>
+            {showWeek ? "Hide week" : "View week"}
+          </Button>
+          <Button variant="subtle" onClick={load}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Card className="border-white/70 bg-white/55 backdrop-blur-xl overflow-hidden">
         <CardHeader>
-          <CardTitle>Your week at a glance</CardTitle>
+          <CardTitle>Next 3 appointments</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
-            {weekDays.map((d) => {
-              const key = d.toDateString();
-              const items = calendarMap.get(key) || [];
-              return (
-                <motion.div layout key={key} className="rounded-2xl border border-white/60 bg-gradient-to-b from-white/70 to-emerald-50/25 p-3 min-h-[120px]">
-                  <div className="text-xs font-semibold text-slate-700">{d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
-                  <div className="mt-2 space-y-2">
-                    {items.length === 0 ? <div className="text-[11px] text-slate-500">No visits</div> : null}
-                    {items.map((a) => (
-                      <div key={a._id} className="rounded-xl bg-white/85 border border-white/70 p-2 text-[11px]">
-                        <div className="font-semibold text-slate-900">{new Date(a.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-                        <div className="text-slate-600 truncate">{a.doctorEmail || a.doctorId}</div>
-                        <Badge tone={statusTone(a.status)}>{a.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+        <CardContent className="space-y-3">
+          {nextAppointments.length === 0 ? <div className="text-sm text-slate-600">No upcoming appointments.</div> : null}
+          {nextAppointments.map((a) => (
+            <div key={a._id} className="rounded-2xl border border-white/60 bg-white/60 p-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-sm font-semibold text-slate-900">{a.doctorEmail || a.doctorId}</div>
+                <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+              </div>
+              <div className="mt-1 text-sm text-slate-700">{formatWhen(a.startTime)}</div>
+            </div>
+          ))}
         </CardContent>
       </Card>
+
+      {showWeek ? (
+        <Card className="border-white/70 bg-white/55 backdrop-blur-xl overflow-hidden">
+          <CardHeader>
+            <CardTitle>Your week at a glance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
+              {weekDays.map((d) => {
+                const key = d.toDateString();
+                const items = calendarMap.get(key) || [];
+                return (
+                  <motion.div layout key={key} className="rounded-2xl border border-white/60 bg-gradient-to-b from-white/70 to-emerald-50/25 p-3 min-h-[120px]">
+                    <div className="text-xs font-semibold text-slate-700">{d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
+                    <div className="mt-2 space-y-2">
+                      {items.length === 0 ? <div className="text-[11px] text-slate-500">No visits</div> : null}
+                      {items.map((a) => (
+                        <div key={a._id} className="rounded-xl bg-white/85 border border-white/70 p-2 text-[11px]">
+                          <div className="font-semibold text-slate-900">{new Date(a.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                          <div className="text-slate-600 truncate">{a.doctorEmail || a.doctorId}</div>
+                          <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card className="border-white/70 bg-white/55 backdrop-blur-xl">

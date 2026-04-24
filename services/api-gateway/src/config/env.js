@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.string().optional().default("development"),
   PORT: z.coerce.number().int().positive().default(8080),
   JWT_SECRET: z.string().min(16),
+  INTERNAL_API_KEY: z.string().min(8),
   AUTH_SERVICE_URL: z.string().url(),
   USER_SERVICE_URL: z.string().url(),
   APPOINTMENT_SERVICE_URL: z.string().url(),
@@ -21,4 +22,3 @@ if (!parsed.success) {
 }
 
 module.exports = parsed.data;
-

@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const axios = require("axios");
 const mongoose = require("mongoose");
+const env = require("../config/env");
 const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { Doctor } = require("../models/Doctor");
 const { parseTimeRangeOnDate, findSlotLocation, groupAvailabilityForPublic } = require("../utils/availability");
@@ -31,7 +32,7 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
     for (const s of body.slots) {
       const { startTime, endTime, time } = parseTimeRangeOnDate(body.date, s.time);
       if (startTime.getTime() < Date.now() || endTime.getTime() <= startTime.getTime()) {
-        return res.status(400).json({ error: "Invalid time range selected" });
+        return res.status(400).json({ error: "Invalid time selection" });
       }
       newSlots.push({ time, startTime, endTime, enabled: body.enabled, isBooked: false, bookedByPatientId: null, appointmentId: null });
     }
@@ -56,18 +57,19 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
     
     // Emit real-time event
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "availability_updated",
-        payload: { doctorId: fresh._id }
-      });
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "availability_updated", payload: { doctorId: fresh.authUserId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);
     }
 
-    return res.status(201).json({ availability: groupAvailabilityForPublic(fresh) });
+    return res.json({ availability: groupAvailabilityForPublic(fresh) });
   } catch (err) {
     if (err?.name === "ZodError") return res.status(400).json({ error: "INVALID_SLOT_PAYLOAD" });
-    if (String(err.message || "").includes("INVALID")) return res.status(400).json({ error: "INVALID_SLOT_PAYLOAD" });
+    if (String(err.message || "").includes("INVALID")) return res.status(400).json({ error: "Invalid time selection" });
     next(err);
   }
 });
@@ -90,10 +92,11 @@ router.patch("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR"),
     
     // Emit real-time event
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "availability_updated",
-        payload: { doctorId: fresh._id }
-      });
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "availability_updated", payload: { doctorId: fresh.authUserId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);
     }
@@ -121,10 +124,11 @@ router.delete("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR")
     
     // Emit real-time event
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "availability_updated",
-        payload: { doctorId: doctor._id }
-      });
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "availability_updated", payload: { doctorId: doctor.authUserId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);
     }

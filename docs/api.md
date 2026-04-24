@@ -33,6 +33,42 @@ Body:
 
 Lists onboarded doctors (from User Service).
 
+### GET `/api/doctors/:id/availability`
+
+Public doctor availability view: only `enabled` + not booked + not expired slots.
+
+## Doctor availability (doctor-only)
+
+### GET `/api/doctor/availability`
+
+Returns signed-in doctor's availability grouped by date.
+
+### POST `/api/doctor/availability`
+
+Adds availability slots for a date.
+
+```json
+{ "date": "2026-04-24", "slots": [{ "time": "09:00-09:30" }] }
+```
+
+Invalid selection is rejected with:
+
+```json
+{ "error": "Invalid time selection" }
+```
+
+### PATCH `/api/doctor/availability/:slotId`
+
+Enable/disable a slot.
+
+```json
+{ "enabled": false }
+```
+
+### DELETE `/api/doctor/availability/:slotId`
+
+Deletes a slot (only if not booked).
+
 ## Profiles
 
 ### GET `/api/users/me` (Protected)

@@ -6,6 +6,7 @@ const { requireAuth, requireRole } = require("../middleware/requireAuth");
 const { lookupUsers } = require("../services/authLookup");
 const { notify, logActivity, upsertMedicineReminder, upsertFollowUpReminder } = require("../services/notifier");
 const { lockSlot, releaseSlot, setSlotAppointment } = require("../services/userClient");
+const env = require("../config/env");
 
 const router = express.Router();
 
@@ -43,6 +44,10 @@ async function handleBookAppointment(req, res, next) {
 
       const start = lock.startTime;
       const end = lock.endTime;
+      if (new Date(start).getTime() < Date.now()) {
+        await releaseSlot({ doctorId, slotId, patientId: req.user.id });
+        return res.status(400).json({ error: "Invalid time selection" });
+      }
 
       const overlap = await Appointment.findOne({
         doctorId,
@@ -95,11 +100,14 @@ async function handleBookAppointment(req, res, next) {
       });
       
       try {
-        await axios.post("http://api-gateway:8080/api/internal/emit", {
-          event: "appointment_updated",
-          payload: { patientId: req.user.id, doctorId }
-        });
-      } catch (e) { console.error(e.message); }
+        await axios.post(
+          `${env.API_GATEWAY_URL}/api/internal/emit`,
+          { event: "appointment_updated", payload: { patientId: req.user.id, doctorId } },
+          { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        );
+      } catch (e) {
+        console.error(e.message);
+      }
 
       return res.status(201).json({ appointment: appt });
     }
@@ -107,6 +115,8 @@ async function handleBookAppointment(req, res, next) {
     const { doctorId, startTime, durationMinutes, problemDescription } = bookLegacySchema.parse(req.body);
     const start = new Date(startTime);
     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+
+    if (start.getTime() < Date.now()) return res.status(400).json({ error: "Invalid time selection" });
 
     const overlap = await Appointment.findOne({
       doctorId,
@@ -149,11 +159,14 @@ async function handleBookAppointment(req, res, next) {
     });
     
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "appointment_updated",
-        payload: { patientId: req.user.id, doctorId }
-      });
-    } catch (e) { console.error(e.message); }
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "appointment_updated", payload: { patientId: req.user.id, doctorId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
+    } catch (e) {
+      console.error(e.message);
+    }
 
     return res.status(201).json({ appointment: appt });
   } catch (err) {
@@ -255,11 +268,14 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
     });
     
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "appointment_updated",
-        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
-      });
-    } catch (e) { console.error(e.message); }
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
+    } catch (e) {
+      console.error(e.message);
+    }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -301,11 +317,14 @@ router.post("/appointments/:id/prescription", requireAuth, requireRole("DOCTOR")
     });
     
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "appointment_updated",
-        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
-      });
-    } catch (e) { console.error(e.message); }
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
+    } catch (e) {
+      console.error(e.message);
+    }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -335,11 +354,14 @@ router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("D
     });
     
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "appointment_updated",
-        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
-      });
-    } catch (e) { console.error(e.message); }
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
+    } catch (e) {
+      console.error(e.message);
+    }
 
     return res.json({ appointment: appt });
   } catch (err) {
@@ -410,11 +432,14 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
     });
     
     try {
-      await axios.post("http://api-gateway:8080/api/internal/emit", {
-        event: "appointment_updated",
-        payload: { patientId: appt.patientId, doctorId: appt.doctorId }
-      });
-    } catch (e) { console.error(e.message); }
+      await axios.post(
+        `${env.API_GATEWAY_URL}/api/internal/emit`,
+        { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+      );
+    } catch (e) {
+      console.error(e.message);
+    }
 
     return res.json({ appointment: appt });
   } catch (err) {

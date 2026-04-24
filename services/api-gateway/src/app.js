@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 
+const env = require("./config/env");
 const { apiRoutes } = require("./routes/apiRoutes");
 
 function createApp() {
@@ -18,6 +19,9 @@ function createApp() {
   
   // Internal endpoint for microservices to emit socket events
   app.post("/api/internal/emit", (req, res) => {
+    const key = req.header("x-internal-api-key");
+    if (!key || key !== env.INTERNAL_API_KEY) return res.status(401).json({ error: "UNAUTHORIZED_INTERNAL" });
+
     const io = req.app.get("io");
     if (!io) return res.status(500).json({ error: "Socket not initialized" });
     const { event, payload } = req.body;
@@ -34,4 +38,3 @@ function createApp() {
 }
 
 module.exports = { createApp };
-

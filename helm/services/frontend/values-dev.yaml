@@ -7,7 +7,6 @@ image:
 service:
   type: ClusterIP
   port: 80
-  nodePort: 30080
 resources:
   requests:
     cpu: 100m

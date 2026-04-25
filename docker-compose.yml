@@ -7,7 +7,7 @@ services:
       - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=yourSecurePassword
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
     command: mongod --auth
     volumes:
       - mongodb_data:/data/db
@@ -19,7 +19,7 @@ services:
     environment:
       - PORT=4001
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
+      - MONGO_URI=mongodb://admin:admin123@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_auth
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -44,7 +44,7 @@ services:
     environment:
       - PORT=4002
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
+      - MONGO_URI=mongodb://admin:admin123@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_user
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -63,7 +63,7 @@ services:
     environment:
       - PORT=4003
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
+      - MONGO_URI=mongodb://admin:admin123@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_appointment
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -82,7 +82,7 @@ services:
     environment:
       - PORT=4004
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
+      - MONGO_URI=mongodb://admin:admin123@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_notification
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}

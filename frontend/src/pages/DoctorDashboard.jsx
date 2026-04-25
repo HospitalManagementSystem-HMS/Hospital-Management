@@ -191,8 +191,8 @@ export function DoctorDashboard() {
         currentMin = nextMin;
       }
       
-      await api.post("/doctor/availability", { date: avDate, slots });
-      await loadMyAvailability();
+      const resp = await api.post("/doctor/availability", { date: avDate, slots });
+      setMyAvailability(resp.data.availability || []);
     } catch (e) {
       setAvError(e?.response?.data?.error || e.message || "Failed to add slot");
     } finally {
@@ -201,13 +201,21 @@ export function DoctorDashboard() {
   }
 
   async function removeSlot(slotId) {
-    await api.delete(`/doctor/availability/${slotId}`);
-    await loadMyAvailability();
+    try {
+      const resp = await api.delete(`/doctor/availability/${slotId}`);
+      setMyAvailability(resp.data.availability || []);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function toggleSlot(slotId, enabled) {
-    await api.patch(`/doctor/availability/${slotId}`, { enabled: !enabled });
-    await loadMyAvailability();
+    try {
+      const resp = await api.patch(`/doctor/availability/${slotId}`, { enabled: !enabled });
+      setMyAvailability(resp.data.availability || []);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function decide(id, status) {

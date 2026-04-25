@@ -26,7 +26,7 @@ spec:
         - name: TZ
           value: "Asia/Kolkata"
         - name: MONGO_URI
-          value: "mongodb://admin:admin123@mongodb:27017/?authSource=admin"
+          value: "mongodb://admin:admin123@mongodb:27017/hms_notification?authSource=admin"
         - name: MONGO_DB_NAME
           value: "hms_notification"
         - name: JWT_SECRET

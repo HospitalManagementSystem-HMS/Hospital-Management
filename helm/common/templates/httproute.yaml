@@ -6,39 +6,26 @@ metadata:
 spec:
   parentRefs:
   - name: hms-gateway
+    namespace: {{ .Values.namespace }}
   rules:
   - matches:
     - path:
         type: PathPrefix
-        value: /api/auth
+        value: /api/
     backendRefs:
-    - name: auth-service
-      port: 5000
+    - name: api-gateway
+      port: 4000
   - matches:
     - path:
         type: PathPrefix
-        value: /api/users
+        value: /socket.io/
     backendRefs:
-    - name: user-service
-      port: 5001
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /api/appointments
-    backendRefs:
-    - name: appointment-service
-      port: 5002
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /api/notifications
-    backendRefs:
-    - name: notification-service
-      port: 5004
+    - name: api-gateway
+      port: 4000
   - matches:
     - path:
         type: PathPrefix
         value: /
     backendRefs:
     - name: frontend
-      port: 3000
+      port: 80

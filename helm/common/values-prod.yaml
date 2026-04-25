@@ -1,0 +1,6 @@
+namespace: hms-prod
+environment: prod
+mongodb:
+  storage: 50Gi
+  storageClass: duni-sc
+  replicas: 3

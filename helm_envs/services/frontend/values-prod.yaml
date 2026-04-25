@@ -1,0 +1,23 @@
+namespace: hms-prod
+replicaCount: 2
+image:
+  repository: suryaa112003/frontend
+  tag: stable
+  pullPolicy: Always
+service:
+  type: NodePort
+  port: 3000
+  nodePort: 30090
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+env:
+  PORT: "3000"
+  SERVICE_NAME: "frontend"
+secrets:
+  JWT_SECRET: "prod_secret_123"
+  INTERNAL_API_KEY: "prod_internal_key"

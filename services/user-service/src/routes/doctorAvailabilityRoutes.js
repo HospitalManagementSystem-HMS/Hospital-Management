@@ -60,7 +60,7 @@ router.post("/doctor/availability", requireAuth, requireRole("DOCTOR"), async (r
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "availability_updated", payload: { doctorId: fresh.authUserId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);
@@ -95,7 +95,7 @@ router.patch("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR"),
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "availability_updated", payload: { doctorId: fresh.authUserId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);
@@ -127,7 +127,7 @@ router.delete("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR")
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "availability_updated", payload: { doctorId: doctor.authUserId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error("Failed to emit socket event", e.message);

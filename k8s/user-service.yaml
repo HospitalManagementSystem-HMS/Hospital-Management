@@ -39,6 +39,8 @@ spec:
           value: "http://appointment-service:5002"
         - name: NOTIFICATION_SERVICE_URL
           value: "http://notification-service:5004"
+        - name: API_GATEWAY_URL
+          value: "http://api-gateway:4000"
 ---
 # user-service service.yaml
 apiVersion: v1

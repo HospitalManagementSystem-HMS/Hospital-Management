@@ -1,0 +1,109 @@
+name: Frontend CI/CD
+ 
+on:
+  workflow_call:
+    inputs:
+      service: { required: true }
+      image: { required: true }
+      sonar_key: { required: true }
+      trigger: { required: true }
+ 
+jobs:
+ 
+  pr-checks:
+    if: inputs.trigger == 'pull_request'
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+ 
+      - run: npm ci
+      - run: npm test -- --coverage || true
+      - run: npm run build
+ 
+      - uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonar.your-domain.com
+ 
+      - uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+ 
+      - name: Notify
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          subject: "${{ job.status == 'success' && '✅' || '❌' }} [${{ inputs.service }}] PR — ${{ github.sha }}"
+          body: "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+ 
+ 
+  build:
+    if: inputs.trigger == 'push'
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - id: meta
+        run: |
+          SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tag=sha-$SHA" >> $GITHUB_OUTPUT
+          echo "image=${{ inputs.image }}:sha-$SHA" >> $GITHUB_OUTPUT
+ 
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+ 
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.meta.outputs.image }}
+ 
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.image }}
+          severity: CRITICAL,HIGH
+          exit-code: 1
+ 
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+ 
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: YOUR_ORG/main-project-repo
+          event-type: service-image-updated
+          client-payload: |
+            {
+              "service_name": "${{ inputs.service }}",
+              "image": "${{ steps.meta.outputs.image }}",
+              "sha_tag": "${{ steps.meta.outputs.tag }}"
+            }
+ 
+      - name: Notify
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          subject: "${{ job.status == 'success' && '✅' || '❌' }} [${{ inputs.service }}] Build"
+          body: "Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

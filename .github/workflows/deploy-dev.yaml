@@ -1,0 +1,70 @@
+name: Deploy Dev
+ 
+on:
+
+  repository_dispatch:
+
+    types: [service-image-updated]
+ 
+jobs:
+
+  deploy:
+
+    runs-on: ubuntu-latest
+ 
+    steps:
+
+      - uses: actions/checkout@v4
+
+        with:
+
+          ref: dev
+
+          token: ${{ secrets.GH_PAT }}
+ 
+      - name: Update values
+
+        run: |
+
+          SERVICE=${{ github.event.client_payload.service_name }}
+
+          TAG=${{ github.event.client_payload.sha_tag }}
+ 
+          yq -i ".image.tag = \"$TAG\"" helm/$SERVICE/values-dev.yaml
+ 
+      - name: Commit
+
+        run: |
+
+          git config user.name ci-bot
+
+          git config user.email ci@bot.com
+
+          git add .
+
+          git commit -m "update $SERVICE → $TAG"
+
+          git push
+ 
+      - name: Notify
+
+        if: always()
+
+        uses: dawidd6/action-send-mail@v3
+
+        with:
+
+          server_address: ${{ secrets.SMTP_HOST }}
+
+          server_port: ${{ secrets.SMTP_PORT }}
+
+          username: ${{ secrets.SMTP_USER }}
+
+          password: ${{ secrets.SMTP_PASS }}
+
+          to: ${{ secrets.NOTIFY_EMAIL }}
+
+          subject: "Deploy Dev - ${{ job.status }}"
+
+          body: "Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+ 

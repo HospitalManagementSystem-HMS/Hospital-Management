@@ -21,10 +21,40 @@ spec:
         ports:
         - containerPort: 5000
         env:
+        - name: PORT
+          value: "5000"
+        - name: TZ
+          value: "Asia/Kolkata"
         - name: MONGO_URI
-          value: "mongodb://mongodb:27017/hospital"
+          value: "mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin"
+        - name: MONGO_DB_NAME
+          value: "hms_auth"
         - name: JWT_SECRET
           value: "your_jwt_secret"
+        - name: INTERNAL_API_KEY
+          value: "dev_internal_key_change_me"
+        - name: USER_SERVICE_URL
+          value: "http://user-service:5001"
+        - name: SEED
+          value: "true"
+        - name: SEED_ADMIN_EMAIL
+          value: "admin@hospital.local"
+        - name: SEED_ADMIN_PASSWORD
+          value: "Admin@12345"
+        - name: SEED_DOCTOR_EMAIL
+          value: "doctor@hospital.local"
+        - name: SEED_DOCTOR_PASSWORD
+          value: "Doctor@12345"
+        - name: SEED_DOCTOR_NAME
+          value: "Dr. Aisha Sharma"
+        - name: SEED_DOCTOR_SPECIALIZATION
+          value: "General Physician"
+        - name: SEED_PATIENT_EMAIL
+          value: "patient@hospital.local"
+        - name: SEED_PATIENT_PASSWORD
+          value: "Patient@12345"
+        - name: SEED_PATIENT_NAME
+          value: "Rahul Verma"
 ---
 # auth-service service.yaml
 apiVersion: v1

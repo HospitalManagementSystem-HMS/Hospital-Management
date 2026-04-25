@@ -21,8 +21,24 @@ spec:
         ports:
         - containerPort: 5002
         env:
+        - name: PORT
+          value: "5002"
+        - name: TZ
+          value: "Asia/Kolkata"
         - name: MONGO_URI
-          value: "mongodb://mongodb:27017/hospital"
+          value: "mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin"
+        - name: MONGO_DB_NAME
+          value: "hms_appointment"
+        - name: JWT_SECRET
+          value: "your_jwt_secret"
+        - name: INTERNAL_API_KEY
+          value: "dev_internal_key_change_me"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:5000"
+        - name: USER_SERVICE_URL
+          value: "http://user-service:5001"
+        - name: NOTIFICATION_SERVICE_URL
+          value: "http://notification-service:5004"
 ---
 # appointment-service service.yaml
 apiVersion: v1

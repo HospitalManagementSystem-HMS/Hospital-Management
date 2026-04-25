@@ -21,8 +21,22 @@ spec:
         ports:
         - containerPort: 5004
         env:
+        - name: PORT
+          value: "5004"
+        - name: TZ
+          value: "Asia/Kolkata"
         - name: MONGO_URI
-          value: "mongodb://mongodb:27017/hospital"
+          value: "mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin"
+        - name: MONGO_DB_NAME
+          value: "hms_notification"
+        - name: JWT_SECRET
+          value: "your_jwt_secret"
+        - name: INTERNAL_API_KEY
+          value: "dev_internal_key_change_me"
+        - name: MED_REMINDER_TZ
+          value: "UTC"
+        - name: FOLLOW_UP_POLL_SECONDS
+          value: "60"
         - name: EMAIL_USER
           value: "example@gmail.com"
         - name: EMAIL_PASS

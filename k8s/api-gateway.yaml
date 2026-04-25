@@ -21,6 +21,14 @@ spec:
         ports:
         - containerPort: 4000
         env:
+        - name: PORT
+          value: "4000"
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: JWT_SECRET
+          value: "your_jwt_secret"
+        - name: INTERNAL_API_KEY
+          value: "dev_internal_key_change_me"
         - name: AUTH_SERVICE_URL
           value: "http://auth-service:5000"
         - name: USER_SERVICE_URL
@@ -29,8 +37,6 @@ spec:
           value: "http://appointment-service:5002"
         - name: NOTIFICATION_SERVICE_URL
           value: "http://notification-service:5004"
-        - name: JWT_SECRET
-          value: "your_jwt_secret"
 ---
 # api-gateway service.yaml
 apiVersion: v1

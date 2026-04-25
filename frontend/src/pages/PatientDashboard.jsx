@@ -107,8 +107,11 @@ export function PatientDashboard() {
   useEffect(() => {
     loadAvailability();
     
-    const socket = io("http://15.206.100.247:8080", {
-      transports: ["websocket"]
+    const socket = io("/", {
+      path: "/socket.io/",
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      timeout: 20000
     });
     socket.on("availability_updated", (data) => {
       if (!data || data.doctorId === doctorId) {

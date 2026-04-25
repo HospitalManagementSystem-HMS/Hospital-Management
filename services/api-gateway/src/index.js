@@ -10,8 +10,10 @@ async function main() {
   const io = new Server(server, {
     cors: { 
       origin: "*",
-      methods: ["GET", "POST"]
-    }
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+    transports: ["websocket", "polling"]
   });
 
   io.on("connection", (socket) => {
@@ -25,9 +27,9 @@ async function main() {
 
   app.set("io", io);
 
-  server.listen(env.PORT, () => {
+  server.listen(env.PORT, "0.0.0.0", () => {
     // eslint-disable-next-line no-console
-    console.log(`api-gateway listening on :${env.PORT}`);
+    console.log(`api-gateway listening on 0.0.0.0:${env.PORT}`);
   });
 }
 

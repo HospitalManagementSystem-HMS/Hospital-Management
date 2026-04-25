@@ -90,9 +90,12 @@ export function DoctorDashboard() {
     const t = setInterval(() => setNowTick(Date.now()), 30_000);
     
     // Connect WebSocket
-    const socket = io("http://15.206.100.247:8080", {
-      transports: ["websocket"]
-    }); // Connects directly to the gateway
+    const socket = io("/", {
+      path: "/socket.io/",
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      timeout: 20000
+    }); // Connects via Nginx reverse proxy
     socket.on("availability_updated", () => loadMyAvailability());
     socket.on("appointment_updated", () => load());
     

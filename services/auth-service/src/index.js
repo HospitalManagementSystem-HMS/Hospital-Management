@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const { User } = require("./models/User");
 
 async function seedAdmin() {
-  const existingAdmin = await User.findOne({ role: "ADMIN" });
+  const existingAdmin = await User.findOne({ email: "admin@hospital.com" });
   if (!existingAdmin) {
     const passwordHash = await bcrypt.hash("admin123", 12);
     await User.create({

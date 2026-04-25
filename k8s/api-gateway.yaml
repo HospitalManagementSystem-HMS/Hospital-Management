@@ -26,7 +26,7 @@ spec:
         - name: TZ
           value: "Asia/Kolkata"
         - name: JWT_SECRET
-          value: "your_jwt_secret"
+          value: "super_secure_jwt_secret_123"
         - name: INTERNAL_API_KEY
           value: "dev_internal_key_change_me"
         - name: AUTH_SERVICE_URL

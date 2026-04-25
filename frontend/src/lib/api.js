@@ -2,7 +2,7 @@ import axios from "axios";
 import { getToken, clearToken } from "./authStorage";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://15.206.100.247:8080/api",
+  baseURL: "/api",
   timeout: 15000
 });
 

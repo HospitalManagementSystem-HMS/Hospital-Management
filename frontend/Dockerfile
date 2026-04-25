@@ -19,8 +19,8 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy build files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx config (optional)
-# COPY nginx.conf /etc/nginx/nginx.conf
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Non-root user (nginx already runs non-root internally in alpine)
 

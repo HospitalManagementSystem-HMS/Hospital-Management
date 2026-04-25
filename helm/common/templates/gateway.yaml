@@ -4,7 +4,7 @@ metadata:
   name: hms-gateway
   namespace: {{ .Values.namespace }}
 spec:
-  gatewayClassName: istio
+  gatewayClassName: kgateway
   listeners:
   - name: http
     protocol: HTTP

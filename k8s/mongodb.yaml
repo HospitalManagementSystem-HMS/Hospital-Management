@@ -25,7 +25,7 @@ spec:
         - name: MONGO_INITDB_ROOT_USERNAME
           value: "admin"
         - name: MONGO_INITDB_ROOT_PASSWORD
-          value: "yourSecurePassword"
+          value: "admin123"
 ---
 # mongodb service.yaml
 apiVersion: v1

@@ -103,7 +103,7 @@ async function handleBookAppointment(req, res, next) {
         await axios.post(
           `${env.API_GATEWAY_URL}/api/internal/emit`,
           { event: "appointment_updated", payload: { patientId: req.user.id, doctorId } },
-          { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+          { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
         );
       } catch (e) {
         console.error(e.message);
@@ -162,7 +162,7 @@ async function handleBookAppointment(req, res, next) {
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "appointment_updated", payload: { patientId: req.user.id, doctorId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error(e.message);
@@ -271,7 +271,7 @@ router.patch("/appointments/:id/decision", requireAuth, requireRole("DOCTOR"), a
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error(e.message);
@@ -320,7 +320,7 @@ router.post("/appointments/:id/prescription", requireAuth, requireRole("DOCTOR")
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error(e.message);
@@ -357,7 +357,7 @@ router.patch("/appointments/:id/consultation-notes", requireAuth, requireRole("D
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error(e.message);
@@ -435,7 +435,7 @@ router.post("/appointments/:id/consultation", requireAuth, requireRole("DOCTOR")
       await axios.post(
         `${env.API_GATEWAY_URL}/api/internal/emit`,
         { event: "appointment_updated", payload: { patientId: appt.patientId, doctorId: appt.doctorId } },
-        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY } }
+        { headers: { "x-internal-api-key": env.INTERNAL_API_KEY }, timeout: 3000 }
       );
     } catch (e) {
       console.error(e.message);

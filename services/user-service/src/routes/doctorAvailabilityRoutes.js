@@ -120,6 +120,7 @@ router.delete("/doctor/availability/:slotId", requireAuth, requireRole("DOCTOR")
     if (doctor.availability[loc.d].slots.length === 0) {
       doctor.availability.splice(loc.d, 1);
     }
+    doctor.markModified('availability');
     await doctor.save();
     
     // Emit real-time event

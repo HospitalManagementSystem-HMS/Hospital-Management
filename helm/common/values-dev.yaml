@@ -1,6 +1,6 @@
 namespace: hms-dev
 environment: dev
 mongodb:
-  storage: 10Gi
-  storageClass: hms-sc
+  storage: 5Gi
+  storageClass: hms-nfs-sc
   replicas: 1

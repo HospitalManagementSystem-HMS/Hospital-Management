@@ -7,7 +7,7 @@ image:
 service:
   type: NodePort
   port: 4000
-  nodePort: 30081
+  nodePort: 32100
 resources:
   requests:
     cpu: 100m
@@ -17,7 +17,10 @@ resources:
     memory: 512Mi
 env:
   PORT: "4000"
-  SERVICE_NAME: "api-gateway"
+  AUTH_SERVICE_URL: "http://auth-service.hms-dev.svc.cluster.local:5000"
+  USER_SERVICE_URL: "http://user-service.hms-dev.svc.cluster.local:5001"
+  APPOINTMENT_SERVICE_URL: "http://appointment-service.hms-dev.svc.cluster.local:5002"
+  NOTIFICATION_SERVICE_URL: "http://notification-service.hms-dev.svc.cluster.local:5004"
 secrets:
-  JWT_SECRET: "dev_secret_123"
-  INTERNAL_API_KEY: "dev_internal_key"
+  JWT_SECRET: "dev_super_secret_key_123"
+  INTERNAL_API_KEY: "dev_internal_key_change_me"

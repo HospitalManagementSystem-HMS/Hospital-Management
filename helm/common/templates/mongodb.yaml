@@ -41,11 +41,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mongodb-headless
+  name: mongodb
   namespace: {{ .Values.namespace }}
 spec:
   type: ClusterIP
-  clusterIP: None
   selector:
     app: mongodb
   ports:

@@ -4,7 +4,7 @@ metadata:
   name: {{ .Values.mongodb.storageClass }}
 provisioner: nfs.csi.k8s.io
 parameters:
-  server: 10.0.1.140
+  server: 10.0.1.42
   share: /var/nfs/general/hospital
 reclaimPolicy: Retain
 volumeBindingMode: Immediate

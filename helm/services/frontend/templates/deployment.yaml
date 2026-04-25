@@ -21,7 +21,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: 80
               protocol: TCP
           envFrom:
             - configMapRef:
@@ -30,15 +30,17 @@ spec:
                 name: {{ include "frontend.fullname" . }}-secret
           readinessProbe:
             httpGet:
-              path: /health
-              port: http
+              path: /
+              port: 80
             initialDelaySeconds: 10
             periodSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /health
-              port: http
+              path: /
+              port: 80
             initialDelaySeconds: 15
             periodSeconds: 10
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

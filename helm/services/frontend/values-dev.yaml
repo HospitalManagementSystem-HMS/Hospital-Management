@@ -6,7 +6,7 @@ image:
   pullPolicy: Always
 service:
   type: NodePort
-  port: 3000
+  port: 80
   nodePort: 30080
 resources:
   requests:
@@ -16,8 +16,8 @@ resources:
     cpu: 500m
     memory: 512Mi
 env:
-  PORT: "3000"
   SERVICE_NAME: "frontend"
+  API_GATEWAY_URL: "http://api-gateway.hms-dev.svc.cluster.local:4000"
 secrets:
-  JWT_SECRET: "dev_secret_123"
-  INTERNAL_API_KEY: "dev_internal_key"
+  JWT_SECRET: "dev_super_secret_key_123"
+  INTERNAL_API_KEY: "dev_internal_key_change_me"

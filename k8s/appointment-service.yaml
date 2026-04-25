@@ -1,0 +1,38 @@
+# appointment-service deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appointment-service
+  labels:
+    app: appointment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appointment-service
+  template:
+    metadata:
+      labels:
+        app: appointment-service
+    spec:
+      containers:
+      - name: appointment-service
+        image: suryaa112003/appointment-service:latest
+        ports:
+        - containerPort: 5002
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongodb:27017/hospital"
+---
+# appointment-service service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: appointment-service
+spec:
+  type: ClusterIP
+  selector:
+    app: appointment-service
+  ports:
+  - port: 5002
+    targetPort: 5002

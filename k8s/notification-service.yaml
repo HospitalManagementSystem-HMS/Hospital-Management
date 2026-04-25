@@ -1,0 +1,42 @@
+# notification-service deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: suryaa112003/notification-service:latest
+        ports:
+        - containerPort: 5004
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongodb:27017/hospital"
+        - name: EMAIL_USER
+          value: "example@gmail.com"
+        - name: EMAIL_PASS
+          value: "app_password"
+---
+# notification-service service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  type: ClusterIP
+  selector:
+    app: notification-service
+  ports:
+  - port: 5004
+    targetPort: 5004

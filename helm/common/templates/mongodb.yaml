@@ -4,7 +4,7 @@ metadata:
   name: mongodb
   namespace: {{ .Values.namespace }}
 spec:
-  serviceName: "mongodb-headless"
+  serviceName: "mongodb"
   replicas: {{ .Values.mongodb.replicas }}
   selector:
     matchLabels:
@@ -45,6 +45,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   type: ClusterIP
+  clusterIP: None
   selector:
     app: mongodb
   ports:

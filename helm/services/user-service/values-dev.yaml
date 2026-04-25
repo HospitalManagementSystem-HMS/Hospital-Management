@@ -16,7 +16,7 @@ resources:
     memory: 512Mi
 env:
   PORT: "5001"
-  MONGO_URI: "mongodb://admin:admin123@mongodb-headless.hms-dev.svc.cluster.local:27017/hms_user?authSource=admin"
+  MONGO_URI: "mongodb://admin:admin123@mongodb.hms-dev.svc.cluster.local:27017/hms_user?authSource=admin"
   AUTH_SERVICE_URL: "http://auth-service.hms-dev.svc.cluster.local:5000"
   APPOINTMENT_SERVICE_URL: "http://appointment-service.hms-dev.svc.cluster.local:5002"
 secrets:

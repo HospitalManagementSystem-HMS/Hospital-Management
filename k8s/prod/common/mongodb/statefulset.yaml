@@ -4,7 +4,7 @@ metadata:
   name: mongodb
   namespace: hms-prod
 spec:
-  serviceName: "mongodb-headless"
+  serviceName: "mongodb"
   replicas: 3
   selector:
     matchLabels:

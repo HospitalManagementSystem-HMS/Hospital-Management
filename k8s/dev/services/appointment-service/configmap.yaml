@@ -6,7 +6,7 @@ metadata:
 data:
   PORT: "5002"
   SERVICE_NAME: "appointment-service"
-  MONGO_URI: "mongodb://admin:admin123@mongodb-headless:27017/?authSource=admin"
+  MONGO_URI: "mongodb://admin:admin123@mongodb:27017/?authSource=admin"
   AUTH_SERVICE_URL: "http://auth-service:5000"
   USER_SERVICE_URL: "http://user-service:5001"
   APPOINTMENT_SERVICE_URL: "http://appointment-service:5002"

@@ -1,0 +1,22 @@
+namespace: hms-dev
+replicaCount: 1
+image:
+  repository: suryaa112003/frontend
+  tag: latest
+  pullPolicy: Always
+service:
+  type: ClusterIP
+  port: 80
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+env:
+  SERVICE_NAME: "frontend"
+  API_GATEWAY_URL: "http://api-gateway.hms-dev.svc.cluster.local:4000"
+secrets:
+  JWT_SECRET: "dev_super_secret_key_123"
+  INTERNAL_API_KEY: "dev_internal_key_change_me"

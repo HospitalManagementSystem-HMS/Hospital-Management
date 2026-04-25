@@ -1,10 +1,11 @@
+# mongodb deployment.yaml
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: mongodb
-  namespace: hms-dev
+  labels:
+    app: mongodb
 spec:
-  serviceName: "mongodb-headless"
   replicas: 1
   selector:
     matchLabels:
@@ -19,21 +20,21 @@ spec:
         image: mongo:7.0
         ports:
         - containerPort: 27017
-          name: mongodb
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
           value: "admin"
         - name: MONGO_INITDB_ROOT_PASSWORD
           value: "admin123"
-        volumeMounts:
-        - name: mongo-data
-          mountPath: /data/db
-  volumeClaimTemplates:
-  - metadata:
-      name: mongo-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "duni-sc"
-      resources:
-        requests:
-          storage: 10Gi
+---
+# mongodb service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  type: ClusterIP
+  selector:
+    app: mongodb
+  ports:
+  - port: 27017
+    targetPort: 27017

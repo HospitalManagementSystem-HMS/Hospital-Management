@@ -2,5 +2,5 @@ namespace: hms-dev
 environment: dev
 mongodb:
   storage: 10Gi
-  storageClass: duni-sc
+  storageClass: hms-sc
   replicas: 1

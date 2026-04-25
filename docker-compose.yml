@@ -1,10 +1,14 @@
 services:
   mongodb:
-    image: mongo:7
+    image: mongo:7.0
     container_name: hms-mongodb
     restart: unless-stopped
     ports:
       - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=yourSecurePassword
+    command: mongod --auth
     volumes:
       - mongodb_data:/data/db
 
@@ -15,7 +19,7 @@ services:
     environment:
       - PORT=4001
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_auth
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -40,7 +44,7 @@ services:
     environment:
       - PORT=4002
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_user
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -59,7 +63,7 @@ services:
     environment:
       - PORT=4003
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_appointment
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -78,7 +82,7 @@ services:
     environment:
       - PORT=4004
       - TZ=${TZ:-Asia/Kolkata}
-      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_URI=mongodb://admin:yourSecurePassword@mongodb:27017/?authSource=admin
       - MONGO_DB_NAME=hms_notification
       - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_me}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY:-dev_internal_key_change_me}
@@ -117,5 +121,17 @@ services:
     ports:
       - "3000:80"
 
+  code-server:
+    image: codercom/code-server:latest
+    container_name: hms-code-server
+    ports:
+      - "8443:8080"
+    volumes:
+      - /home/ubuntu/Hospital:/home/coder/Hospital
+    environment:
+      - PASSWORD=yourEditorPassword
+    restart: unless-stopped
+
 volumes:
   mongodb_data:
+

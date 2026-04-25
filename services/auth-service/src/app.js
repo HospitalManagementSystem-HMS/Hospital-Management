@@ -12,7 +12,11 @@ function createApp() {
   app.disable("x-powered-by");
 
   app.use(helmet());
-  app.use(cors());
+  app.use(cors({
+    origin: '*', // or specify 'http://13.201.62.153:3000'
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
   app.use(express.json({ limit: "1mb" }));
   app.use(morgan("tiny"));
 

@@ -5,6 +5,8 @@ export default {
     extend: {
       colors: {
         brand: {
+          primary: "#1a3c5e", // Deep Blue
+          accent: "#00a896", // Teal
           50: "#eff8ff",
           100: "#dbefff",
           200: "#bfe3ff",

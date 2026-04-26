@@ -1,8 +1,8 @@
 namespace: hms-dev
 replicaCount: 1
 image:
-  repository: suryaa112003/auth-service
-  tag: latest
+  repository: ghcr.io/hospitalmanagementsystem-hms/auth-service
+  tag: sha-6436b1b
   pullPolicy: Always
 service:
   type: ClusterIP

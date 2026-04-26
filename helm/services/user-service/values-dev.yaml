@@ -1,8 +1,8 @@
 namespace: hms-dev
 replicaCount: 1
 image:
-  repository: suryaa112003/user-service
-  tag: latest
+  repository: ghcr.io/hospitalmanagementsystem-hms/user-service
+  tag: sha-2e6b817
   pullPolicy: Always
 service:
   type: ClusterIP

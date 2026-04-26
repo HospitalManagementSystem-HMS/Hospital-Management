@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: {{ include "appointment-service.fullname" . }}
   namespace: {{ .Values.namespace }}
@@ -7,6 +7,10 @@ metadata:
     app: {{ include "appointment-service.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "appointment-service.fullname" . }}-active
+      previewService: {{ include "appointment-service.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "appointment-service.fullname" . }}

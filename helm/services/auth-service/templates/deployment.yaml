@@ -19,6 +19,8 @@ spec:
       labels:
         app: {{ include "auth-service.fullname" . }}
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

@@ -2,12 +2,11 @@ namespace: hms-prod
 replicaCount: 2
 image:
   repository: suryaa112003/user-service
-  tag: stable
+  tag: v1.1.0
   pullPolicy: Always
 service:
   type: ClusterIP
   port: 5001
-  
 resources:
   requests:
     cpu: 250m

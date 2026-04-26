@@ -1,52 +1,93 @@
 name: Release Prod
- 
+
 on:
-
   release:
-
     types: [published]
- 
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
-
   release:
-
     runs-on: ubuntu-latest
- 
-    strategy:
 
-      matrix:
-
-        service: [user-service, web-app]
- 
     steps:
-
       - uses: actions/checkout@v4
-
         with:
+          ref: master
+          token: ${{ github.token }}
+          fetch-depth: 0
 
-          ref: prod
+      - name: Set release variables
+        run: |
+          TAG_NAME="${{ github.event.release.tag_name }}"
 
-          token: ${{ secrets.GH_PAT }}
- 
+          if [[ "$TAG_NAME" =~ ^(.+)-(v.+)$ ]]; then
+            echo "RELEASE_SERVICE=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+            echo "RELEASE_TAG=${BASH_REMATCH[2]}" >> $GITHUB_ENV
+          else
+            echo "Invalid release tag format: $TAG_NAME"
+            echo "Expected format: service-name-v1.1.0"
+            exit 1
+          fi
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - name: Release service
+        run: |
+          SERVICE="${RELEASE_SERVICE}"
+          IMAGE_REPOSITORY=$(yq '.image.repository' "helm/services/${SERVICE}/values-dev.yaml")
+          SOURCE_TAG=$(yq '.image.tag' "helm/services/${SERVICE}/values-dev.yaml")
+
+          echo "Releasing $SERVICE"
+          echo "Using image repository ${IMAGE_REPOSITORY}"
+          echo "Using source image tag ${SOURCE_TAG}"
+
+          if ! docker pull ${IMAGE_REPOSITORY}:${SOURCE_TAG}; then
+            echo "Source image not found: ${IMAGE_REPOSITORY}:${SOURCE_TAG}"
+            echo "Release expects the dev image tag in helm/services/${SERVICE}/values-dev.yaml to already exist in the registry."
+            exit 1
+          fi
+
+          docker tag \
+            ${IMAGE_REPOSITORY}:${SOURCE_TAG} \
+            ${IMAGE_REPOSITORY}:${RELEASE_TAG}
+
+          docker push ${IMAGE_REPOSITORY}:${RELEASE_TAG}
+
+          yq -i ".image.tag = \"${RELEASE_TAG}\"" \
+            helm/services/${SERVICE}/values-prod.yaml
+
+      - name: Commit & push Helm updates
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci@bot.com"
+
+          git add helm/services/${RELEASE_SERVICE}/values-prod.yaml
+          git commit -m "release ${RELEASE_SERVICE} -> ${RELEASE_TAG}" || echo "No changes"
+          git push origin HEAD:master
+
       - name: Notify
-
         if: always()
-
         uses: dawidd6/action-send-mail@v3
-
         with:
-
           server_address: ${{ secrets.SMTP_HOST }}
-
           server_port: ${{ secrets.SMTP_PORT }}
-
           username: ${{ secrets.SMTP_USER }}
-
           password: ${{ secrets.SMTP_PASS }}
-
           to: ${{ secrets.NOTIFY_EMAIL }}
-
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
           subject: "Prod Release - ${{ job.status }}"
+          body: |
+            Release: ${{ github.event.release.tag_name }}
+            Service: ${{ env.RELEASE_SERVICE }}
+            Status: ${{ job.status }}
 
-          body: "Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
- 
+            Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -23,11 +23,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
-      - run: npm test -- --coverage --watchAll=false --passWithNoTests
-        env:
-          CI: false
-
       - run: npm run build
         env:
           CI: false

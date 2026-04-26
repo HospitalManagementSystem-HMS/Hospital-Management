@@ -1,7 +1,7 @@
 namespace: hms-dev
 replicaCount: 1
 image:
-  repository: suryaa112003/auth-service
+  repository: ghcr.io/hospitalmanagementsystem-hms/auth-service
   tag: latest
   pullPolicy: Always
 service:

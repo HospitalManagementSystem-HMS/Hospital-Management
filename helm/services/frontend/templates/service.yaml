@@ -13,3 +13,29 @@ spec:
       {{- if eq .Values.service.type "NodePort" }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frontend.fullname" . }}-active
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ include "frontend.fullname" . }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frontend.fullname" . }}-preview
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "frontend.fullname" . }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http

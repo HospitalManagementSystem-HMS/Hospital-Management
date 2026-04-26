@@ -7,6 +7,10 @@ metadata:
     app: {{ include "frontend.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "frontend.fullname" . }}-active
+      previewService: {{ include "frontend.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "frontend.fullname" . }}
@@ -15,6 +19,8 @@ spec:
       labels:
         app: {{ include "frontend.fullname" . }}
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

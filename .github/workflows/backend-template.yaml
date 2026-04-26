@@ -103,8 +103,11 @@ jobs:
       - id: meta
         run: |
           SHA=$(echo ${{ github.sha }} | cut -c1-7)
+
+          IMAGE="ghcr.io/hospitalmanagementsystem-hms/${{ inputs.service }}:sha-$SHA"
+
           echo "tag=sha-$SHA" >> $GITHUB_OUTPUT
-          echo "image=${{ inputs.image }}:sha-$SHA" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
  
       - uses: docker/login-action@v3
         with:
@@ -112,11 +115,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PAT }}
  
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true
-          tags: ${{ steps.meta.outputs.image }}
+      - name: Build Image
+        run: |
+          docker build -t ${{ steps.meta.outputs.image }} .
  
       - name: Trivy
         uses: aquasecurity/trivy-action@master
@@ -125,12 +126,10 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: 1
  
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.image }}
- 
+      - name: Push Image
+        run: |
+          docker push ${{ steps.meta.outputs.image }}
+
       - name: Dispatch
         uses: peter-evans/repository-dispatch@v3
         with:

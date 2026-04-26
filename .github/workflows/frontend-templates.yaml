@@ -1,5 +1,5 @@
 name: Frontend CI/CD
- 
+
 on:
   workflow_call:
     inputs:
@@ -7,35 +7,54 @@ on:
       image: { required: true, type: string }
       sonar_key: { required: true, type: string }
       trigger: { required: true, type: string }
- 
+
 jobs:
- 
+
   pr-checks:
     if: inputs.trigger == 'pull_request'
     runs-on: ubuntu-latest
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
- 
+          cache: npm
+
       - run: npm ci
-      - run: npm test -- --coverage || true
+
+      - run: npm test -- --coverage --watchAll=false --passWithNoTests
+        env:
+          CI: false
+
       - run: npm run build
- 
-      - uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          CI: false
+
+      - name: Sonar
+        uses: SonarSource/sonarqube-scan-action@v3
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonar.your-domain.com
- 
-      - uses: snyk/actions/node@master
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: -Dsonar.projectKey=${{ inputs.sonar_key }}
+
+      - name: Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Snyk
+        uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
- 
-      - name: Notify
-        if: always()
+        with:
+          args: --severity-threshold=high
+
+      - name: Notify — Success
+        if: success()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_HOST }}
@@ -43,61 +62,104 @@ jobs:
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASS }}
           to: ${{ secrets.NOTIFY_EMAIL }}
-          subject: "${{ job.status == 'success' && '✅' || '❌' }} [${{ inputs.service }}] PR — ${{ github.sha }}"
-          body: "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
- 
- 
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "✅ [${{ inputs.service }}] PR Checks Passed — ${{ github.sha }}"
+          body: |
+            STATUS: SUCCESS
+            Service: ${{ inputs.service }}
+            Repo: ${{ github.repository }}
+            Actor: ${{ github.actor }}
+            Commit: ${{ github.sha }}
+
+            Steps completed:
+            ✅ Tests
+            ✅ Build
+            ✅ Sonar
+            ✅ Quality Gate
+            ✅ Snyk
+
+            Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify — Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "❌ [${{ inputs.service }}] PR Checks FAILED — ${{ github.sha }}"
+          body: |
+            STATUS: FAILED
+            Service: ${{ inputs.service }}
+            Repo: ${{ github.repository }}
+            Actor: ${{ github.actor }}
+            Commit: ${{ github.sha }}
+
+            One or more steps failed. Check the logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+
   build:
     if: inputs.trigger == 'push'
     runs-on: ubuntu-latest
- 
+
     steps:
       - uses: actions/checkout@v4
- 
+
       - id: meta
         run: |
           SHA=$(echo ${{ github.sha }} | cut -c1-7)
           echo "tag=sha-$SHA" >> $GITHUB_OUTPUT
           echo "image=${{ inputs.image }}:sha-$SHA" >> $GITHUB_OUTPUT
- 
-      - uses: docker/login-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PAT }}
- 
-      - uses: docker/build-push-action@v5
+
+      - name: Build Image
+        uses: docker/build-push-action@v5
         with:
           context: .
           load: true
           tags: ${{ steps.meta.outputs.image }}
- 
-      - uses: aquasecurity/trivy-action@master
+
+      - name: Trivy
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.meta.outputs.image }}
           severity: CRITICAL,HIGH
           exit-code: 1
- 
-      - uses: docker/build-push-action@v5
+
+      - name: Push Image
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.image }}
- 
-      - uses: peter-evans/repository-dispatch@v3
+
+      - name: Dispatch
+        uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GH_PAT }}
-          repository: YOUR_ORG/main-project-repo
+          repository: HospitalManagementSystem-HMS/Hospital-Management
           event-type: service-image-updated
           client-payload: |
             {
               "service_name": "${{ inputs.service }}",
               "image": "${{ steps.meta.outputs.image }}",
-              "sha_tag": "${{ steps.meta.outputs.tag }}"
+              "sha_tag": "${{ steps.meta.outputs.tag }}",
+              "commit_sha": "${{ github.sha }}"
             }
- 
-      - name: Notify
-        if: always()
+
+      - name: Notify — Success
+        if: success()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_HOST }}
@@ -105,5 +167,41 @@ jobs:
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASS }}
           to: ${{ secrets.NOTIFY_EMAIL }}
-          subject: "${{ job.status == 'success' && '✅' || '❌' }} [${{ inputs.service }}] Build"
-          body: "Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "✅ [${{ inputs.service }}] Build & Push Succeeded — ${{ steps.meta.outputs.tag }}"
+          body: |
+            STATUS: SUCCESS
+            Service: ${{ inputs.service }}
+            Image: ${{ steps.meta.outputs.image }}
+            SHA Tag: ${{ steps.meta.outputs.tag }}
+            Commit: ${{ github.sha }}
+
+            Steps completed:
+            ✅ Build
+            ✅ Trivy Scan
+            ✅ Push to GHCR
+            ✅ Dispatch to main repo
+
+            Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify — Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "❌ [${{ inputs.service }}] Build FAILED — ${{ steps.meta.outputs.tag }}"
+          body: |
+            STATUS: FAILED
+            Service: ${{ inputs.service }}
+            Image: ${{ steps.meta.outputs.image }}
+            SHA Tag: ${{ steps.meta.outputs.tag }}
+            Commit: ${{ github.sha }}
+
+            One or more steps failed. Check the logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

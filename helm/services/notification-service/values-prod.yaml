@@ -2,12 +2,11 @@ namespace: hms-prod
 replicaCount: 2
 image:
   repository: ghcr.io/hospitalmanagementsystem-hms/notification-service
-  tag: stable
+  tag: v1.1.0
   pullPolicy: Always
 service:
   type: ClusterIP
   port: 5004
-  
 resources:
   requests:
     cpu: 250m

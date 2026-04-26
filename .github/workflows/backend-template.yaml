@@ -5,7 +5,6 @@ on:
     inputs:
       service: { required: true, type: string }
       image: { required: true, type: string }
-      sonar_key: { required: true, type: string }
       trigger: { required: true, type: string }
  
 jobs:
@@ -30,7 +29,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
         with:
-          args: -Dsonar.projectKey=${{ inputs.sonar_key }}
+          args: -Dsonar.projectKey=${{ secrets.sonar_key }}
  
       - name: Quality Gate
         uses: SonarSource/sonarqube-quality-gate-action@v1

@@ -1,7 +1,7 @@
 namespace: hms-prod
 replicaCount: 2
 image:
-  repository: suryaa112003/frontend
+  repository: ghcr.io/hospitalmanagementsystem-hms/frontend
   tag: stable
   pullPolicy: Always
 service:

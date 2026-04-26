@@ -1,7 +1,7 @@
 namespace: hms-prod
 replicaCount: 2
 image:
-  repository: suryaa112003/api-gateway
+  repository: ghcr.io/hospitalmanagementsystem-hms/api-gateway
   tag: stable
   pullPolicy: Always
 service:

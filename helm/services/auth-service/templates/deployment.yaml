@@ -7,6 +7,10 @@ metadata:
     app: {{ include "auth-service.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "auth-service.fullname" . }}-active
+      previewService: {{ include "auth-service.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "auth-service.fullname" . }}

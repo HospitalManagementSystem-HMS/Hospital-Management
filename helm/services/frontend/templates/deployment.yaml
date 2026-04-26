@@ -7,6 +7,10 @@ metadata:
     app: {{ include "frontend.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "frontend.fullname" . }}-active
+      previewService: {{ include "frontend.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "frontend.fullname" . }}

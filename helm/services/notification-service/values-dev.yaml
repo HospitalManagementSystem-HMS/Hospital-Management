@@ -1,8 +1,8 @@
 namespace: hms-dev
 replicaCount: 1
 image:
-  repository: suryaa112003/notification-service
-  tag: latest
+  repository: ghcr.io/hospitalmanagementsystem-hms/notification-service
+  tag: sha-1a1b251
   pullPolicy: Always
 service:
   type: ClusterIP

@@ -1,8 +1,8 @@
 namespace: hms-dev
 replicaCount: 1
 image:
-  repository: suryaa112003/appointment-service
-  tag: latest
+  repository: ghcr.io/hospitalmanagementsystem-hms/appointment-service
+  tag: sha-ac3b204
   pullPolicy: Always
 service:
   type: ClusterIP

@@ -2,7 +2,7 @@ namespace: hms-dev
 replicaCount: 1
 image:
   repository: ghcr.io/hospitalmanagementsystem-hms/api-gateway
-  tag: latest
+  tag: sha-b83979c
   pullPolicy: Always
 service:
   type: ClusterIP

@@ -2,7 +2,7 @@ namespace: hms-dev
 replicaCount: 1
 image:
   repository: ghcr.io/hospitalmanagementsystem-hms/user-service
-  tag: sha-2e6b817
+  tag: sha-1bcdece
   pullPolicy: Always
 service:
   type: ClusterIP

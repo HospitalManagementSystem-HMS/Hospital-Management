@@ -1,7 +1,7 @@
 namespace: hms-prod
 replicaCount: 2
 image:
-  repository: suryaa112003/auth-service
+  repository: ghcr.io/hospitalmanagementsystem-hms/auth-service
   tag: stable
   pullPolicy: Always
 service:

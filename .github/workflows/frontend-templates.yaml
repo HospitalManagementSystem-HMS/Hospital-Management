@@ -28,7 +28,7 @@ jobs:
       - uses: SonarSource/sonarqube-scan-action@v3
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonar.your-domain.com
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
  
       - uses: snyk/actions/node@master
         env:

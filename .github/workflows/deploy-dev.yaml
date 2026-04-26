@@ -1,70 +1,89 @@
 name: Deploy Dev
- 
+
 on:
-
   repository_dispatch:
-
     types: [service-image-updated]
- 
+
 jobs:
-
   deploy:
-
     runs-on: ubuntu-latest
- 
+
     steps:
-
-      - uses: actions/checkout@v4
-
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
         with:
-
           ref: dev
-
           token: ${{ secrets.GH_PAT }}
- 
-      - name: Update values
 
+      - name: Install yq
+        uses: mikefarah/yq@v4.44.1
+
+      - name: Update values-dev.yaml
         run: |
+          SERVICE="${{ github.event.client_payload.service_name }}"
+          TAG="${{ github.event.client_payload.sha_tag }}"
+          IMAGE="${{ github.event.client_payload.image }}"
 
-          SERVICE=${{ github.event.client_payload.service_name }}
-
-          TAG=${{ github.event.client_payload.sha_tag }}
- 
+          echo "Updating $SERVICE to $TAG"
           yq -i ".image.tag = \"$TAG\"" helm/$SERVICE/values-dev.yaml
- 
-      - name: Commit
+          yq -i ".image.repository = \"${IMAGE%:*}\"" helm/$SERVICE/values-dev.yaml
 
+          echo "SERVICE=$SERVICE" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Commit and push
         run: |
-
           git config user.name ci-bot
-
           git config user.email ci@bot.com
-
           git add .
-
-          git commit -m "update $SERVICE → $TAG"
-
+          git diff --staged --quiet || git commit -m "chore(dev): update $SERVICE → $TAG"
           git push
- 
-      - name: Notify
 
-        if: always()
-
+      - name: Notify — Success
+        if: success()
         uses: dawidd6/action-send-mail@v3
-
         with:
-
           server_address: ${{ secrets.SMTP_HOST }}
-
           server_port: ${{ secrets.SMTP_PORT }}
-
           username: ${{ secrets.SMTP_USER }}
-
           password: ${{ secrets.SMTP_PASS }}
-
           to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "✅ [Dev Deploy] ${{ env.SERVICE }} → ${{ env.TAG }}"
+          body: |
+            STATUS: SUCCESS
 
-          subject: "Deploy Dev - ${{ job.status }}"
+            Service   : ${{ env.SERVICE }}
+            Image Tag : ${{ env.TAG }}
+            Branch    : dev
+            Actor     : ${{ github.actor }}
 
-          body: "Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
- 
+            values-dev.yaml updated and pushed.
+            ArgoCD will now sync the dev cluster.
+
+            Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify — Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "❌ [Dev Deploy] FAILED — ${{ env.SERVICE }}"
+          body: |
+            STATUS: FAILED
+
+            Service   : ${{ env.SERVICE }}
+            Image Tag : ${{ env.TAG }}
+            Branch    : dev
+
+            values-dev.yaml was NOT updated.
+            ArgoCD has NOT deployed the new image.
+
+            Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

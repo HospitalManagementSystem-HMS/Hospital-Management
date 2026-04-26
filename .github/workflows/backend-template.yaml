@@ -115,7 +115,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_PAT }}
  
       - name: Build Image
         run: |
@@ -146,8 +146,8 @@ jobs:
               "commit_sha": "${{ github.sha }}"
             }
  
-      - name: Notify
-        if: always()
+      - name: Notify — Success
+        if: success()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_HOST }}
@@ -156,18 +156,40 @@ jobs:
           password: ${{ secrets.SMTP_PASS }}
           to: ${{ secrets.NOTIFY_EMAIL }}
           from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
-          subject: "${{ job.status == 'success' && '✅' || '❌' }} [${{ inputs.service }}] Build — ${{ steps.meta.outputs.tag }}"
+          subject: "✅ [${{ inputs.service }}] Build & Push Succeeded — ${{ steps.meta.outputs.tag }}"
           body: |
-            STATUS: ${{ job.status }}
+            STATUS: SUCCESS
             Service: ${{ inputs.service }}
             Image: ${{ steps.meta.outputs.image }}
+            SHA Tag: ${{ steps.meta.outputs.tag }}
             Commit: ${{ github.sha }}
- 
-            Steps:
-            - Build
-            - Trivy Scan
-            - Push
-            - Dispatch
- 
+
+            Steps completed:
+            ✅ Build
+            ✅ Trivy Scan
+            ✅ Push to GHCR
+            ✅ Dispatch to main repo
+
             Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify — Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: "CI/CD Bot <${{ secrets.SMTP_USER }}>"
+          subject: "❌ [${{ inputs.service }}] Build FAILED — ${{ steps.meta.outputs.tag }}"
+          body: |
+            STATUS: FAILED
+            Service: ${{ inputs.service }}
+            Image: ${{ steps.meta.outputs.image }}
+            SHA Tag: ${{ steps.meta.outputs.tag }}
+            Commit: ${{ github.sha }}
+
+            One or more steps failed. Check the logs:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

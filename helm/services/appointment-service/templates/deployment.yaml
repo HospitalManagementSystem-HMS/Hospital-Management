@@ -7,6 +7,10 @@ metadata:
     app: {{ include "appointment-service.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "appointment-service.fullname" . }}-active
+      previewService: {{ include "appointment-service.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "appointment-service.fullname" . }}

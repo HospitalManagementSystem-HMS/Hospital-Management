@@ -7,6 +7,10 @@ metadata:
     app: {{ include "notification-service.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "notification-service.fullname" . }}-active
+      previewService: {{ include "notification-service.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "notification-service.fullname" . }}

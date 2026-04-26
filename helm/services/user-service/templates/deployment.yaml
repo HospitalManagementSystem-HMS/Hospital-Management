@@ -7,6 +7,10 @@ metadata:
     app: {{ include "user-service.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    blueGreen:
+      activeService: {{ include "user-service.fullname" . }}-active
+      previewService: {{ include "user-service.fullname" . }}-preview
   selector:
     matchLabels:
       app: {{ include "user-service.fullname" . }}

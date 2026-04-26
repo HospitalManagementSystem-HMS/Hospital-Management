@@ -96,7 +96,11 @@ jobs:
   build:
     if: inputs.trigger == 'push'
     runs-on: ubuntu-latest
- 
+
+    permissions:
+      contents: read
+      packages: write 
+
     steps:
       - uses: actions/checkout@v4
  
@@ -109,11 +113,12 @@ jobs:
           echo "tag=sha-$SHA" >> $GITHUB_OUTPUT
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
  
-      - uses: docker/login-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_PAT }}
+          username: ${{ env.username }}
+          password: ${{ secrets.GITHUB_TOKEN }}
  
       - name: Build Image
         run: |
@@ -134,7 +139,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GH_PAT }}
-          repository: YOUR_ORG/main-project-repo
+          repository: HospitalManagementSystem-HMS/Hospital-Management
           event-type: service-image-updated
           client-payload: |
             {

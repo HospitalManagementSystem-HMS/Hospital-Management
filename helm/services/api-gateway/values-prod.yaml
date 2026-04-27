@@ -5,9 +5,8 @@ image:
   tag: v1.1.0
   pullPolicy: Always
 service:
-  type: NodePort
+  type: ClusterIP
   port: 4000
-  nodePort: 30091
 resources:
   requests:
     cpu: 250m

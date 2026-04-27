@@ -11,6 +11,7 @@ spec:
     blueGreen:
       activeService: {{ include "frontend.fullname" . }}-active
       previewService: {{ include "frontend.fullname" . }}-preview
+      autoPromotionEnabled: false
   selector:
     matchLabels:
       app: {{ include "frontend.fullname" . }}

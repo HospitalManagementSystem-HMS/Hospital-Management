@@ -3,4 +3,4 @@ environment: prod
 mongodb:
   storage: 50Gi
   storageClass: hms-sc
-  replicas: 3
+  replicas: 1

@@ -2,7 +2,7 @@ namespace: hms-prod
 replicaCount: 1
 image:
   repository: ghcr.io/hospitalmanagementsystem-hms/api-gateway
-  tag: stable
+  tag: v1.1.0
   pullPolicy: Always
 service:
   type: NodePort

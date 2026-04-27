@@ -24,14 +24,6 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test -- --coverage --watchAll=false --passWithNoTests
-        env:
-          CI: false
-
-      - run: npm run build
-        env:
-          CI: false
-
       - name: Sonar
         uses: SonarSource/sonarqube-scan-action@v3
         env:

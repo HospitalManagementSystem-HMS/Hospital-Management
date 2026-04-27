@@ -11,6 +11,7 @@ spec:
     blueGreen:
       activeService: {{ include "api-gateway.fullname" . }}-active
       previewService: {{ include "api-gateway.fullname" . }}-preview
+      autoPromotionEnabled: false
   selector:
     matchLabels:
       app: {{ include "api-gateway.fullname" . }}

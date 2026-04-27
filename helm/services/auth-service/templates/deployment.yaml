@@ -11,6 +11,7 @@ spec:
     blueGreen:
       activeService: {{ include "auth-service.fullname" . }}-active
       previewService: {{ include "auth-service.fullname" . }}-preview
+      autoPromotionEnabled: false
   selector:
     matchLabels:
       app: {{ include "auth-service.fullname" . }}
